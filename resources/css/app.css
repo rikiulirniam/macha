@@ -1,0 +1,238 @@
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    src: url('/fonts/plus-jakarta-sans-400.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    src: url('/fonts/plus-jakarta-sans-600.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    src: url('/fonts/plus-jakarta-sans-700.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Plus Jakarta Sans';
+    src: url('/fonts/plus-jakarta-sans-800.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Literata';
+    src: url('/fonts/literata-normal-400.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Literata';
+    src: url('/fonts/literata-normal-600.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Literata';
+    src: url('/fonts/literata-italic-400.ttf') format('truetype');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --color-deep-teal: #102A2A;
+    --color-kilat: #19A974;
+    --color-amber: #F2C14E;
+    --color-paper: #F7F5EF;
+    --color-kilat-dark: #118A5D;
+    --color-amber-dark: #D4A238;
+    --color-teal-soft: #1E4040;
+    --color-paper-dark: #ECE8DC;
+    --color-error: #D9534F;
+}
+
+body {
+    background-color: var(--color-paper);
+    color: var(--color-deep-teal);
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Chunky 3D Duolingo-style buttons */
+.btn-chunky {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    border-radius: 16px;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.1s ease-in-out;
+    user-select: none;
+    cursor: pointer;
+}
+
+.btn-chunky-kilat {
+    background-color: #19A974;
+    color: #102A2A;
+    border-bottom: 4px solid #118A5D;
+}
+.btn-chunky-kilat:hover {
+    background-color: #1bb37c;
+}
+.btn-chunky-kilat:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+}
+
+.btn-chunky-amber {
+    background-color: #F2C14E;
+    color: #102A2A;
+    border-bottom: 4px solid #D4A238;
+}
+.btn-chunky-amber:hover {
+    background-color: #f7ca5e;
+}
+.btn-chunky-amber:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+}
+
+.btn-chunky-paper {
+    background-color: #F7F5EF;
+    color: #102A2A;
+    border: 2px solid #ECE8DC;
+    border-bottom: 4px solid #ECE8DC;
+}
+.btn-chunky-paper:hover {
+    background-color: #ffffff;
+}
+.btn-chunky-paper:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+}
+
+.btn-chunky-teal {
+    background-color: #1E4040;
+    color: #F7F5EF;
+    border-bottom: 4px solid #102A2A;
+}
+.btn-chunky-teal:hover {
+    background-color: #244b4b;
+}
+.btn-chunky-teal:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+}
+
+/* Feed vertical swipe snap container */
+.feed-snap-container {
+    scroll-snap-type: y mandatory;
+    overflow-y: scroll;
+    height: 100dvh;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+.feed-snap-container::-webkit-scrollbar {
+    display: none;
+}
+
+.feed-snap-card {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    height: 100dvh;
+    min-height: 100dvh;
+}
+
+/* Horizontal slide snap container inside a card */
+.slides-snap-container {
+    scroll-snap-type: x mandatory;
+    overflow-x: scroll;
+    display: flex;
+    height: 100%;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.slides-snap-container::-webkit-scrollbar {
+    display: none;
+}
+
+.slide-snap-item {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    min-width: 100%;
+    width: 100%;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+/* Chunky card panels */
+.card-paper {
+    background-color: #F7F5EF;
+    border: 2px solid #ECE8DC;
+    border-radius: 24px;
+}
+
+.card-teal {
+    background-color: #102A2A;
+    border: 2px solid #1E4040;
+    border-radius: 24px;
+    color: #F7F5EF;
+}
+
+/* Micro-animations */
+@keyframes float-up {
+    0% {
+        opacity: 0;
+        transform: translateY(10px) scale(0.9);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-5px) scale(1.1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-25px) scale(1);
+    }
+}
+
+.animate-float-exp {
+    animation: float-up 1.2s ease-out forwards;
+}
+
+@keyframes like-bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+}
+
+.animate-like {
+    animation: like-bounce 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
