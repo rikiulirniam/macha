@@ -76,6 +76,11 @@ body {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
+}
+
+html {
+    overscroll-behavior-y: none;
 }
 
 /* Chunky 3D Duolingo-style buttons */
@@ -154,6 +159,12 @@ body {
 }
 .feed-snap-container::-webkit-scrollbar {
     display: none;
+}
+
+.feed-snap-container.feed-locked {
+    overflow-y: hidden !important;
+    touch-action: none !important;
+    scroll-snap-type: none !important;
 }
 
 .feed-snap-card {
