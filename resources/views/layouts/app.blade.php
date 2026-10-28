@@ -1,5 +1,11 @@
+@props([
+    'title' => null,
+    'maxWidth' => null,
+    'isFeed' => false,
+])
+
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-paper">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-paper {{ $isFeed ? 'overflow-hidden' : '' }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -15,7 +21,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         @stack('styles')
     </head>
-    <body class="font-sans text-deep-teal bg-paper min-h-full flex flex-col md:flex-row antialiased selection:bg-kilat selection:text-deep-teal">
+    <body class="font-sans text-deep-teal bg-paper min-h-full flex flex-col md:flex-row antialiased selection:bg-kilat selection:text-deep-teal {{ $isFeed ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : '' }}">
         <x-toast />
 
         <!-- Desktop Sidebar (md and up) -->
@@ -82,7 +88,34 @@
 
             <!-- User Status / Quick EXP & Streak on Desktop -->
             @auth
-                <div class="card-paper p-4 border-2 border-paper-dark rounded-2xl flex flex-col gap-3">
+                <div
+                    x-data="{
+                        currentExp: {{ (int) auth()->user()->total_exp }},
+                        streak: {{ (int) auth()->user()->current_streak }},
+                        animating: false,
+                        get progress() {
+                            return Math.max(4, Math.min(100, this.currentExp % 100));
+                        },
+                        handleExpGained(detail) {
+                            if (!detail) return;
+                            if (detail.total_exp !== undefined && detail.total_exp !== null) {
+                                this.currentExp = detail.total_exp;
+                            } else if (detail.exp_awarded) {
+                                this.currentExp += detail.exp_awarded;
+                            }
+                            if (detail.streak !== undefined && detail.streak !== null) {
+                                this.streak = detail.streak;
+                            } else if (detail.current_streak !== undefined && detail.current_streak !== null) {
+                                this.streak = detail.current_streak;
+                            }
+                            this.animating = true;
+                            setTimeout(() => { this.animating = false; }, 1200);
+                        }
+                    }"
+                    @exp-gained.window="handleExpGained($event.detail)"
+                    class="card-paper p-4 border-2 border-paper-dark rounded-2xl flex flex-col gap-3 transition-all duration-300"
+                    :class="{ 'scale-[1.02] ring-2 ring-amber shadow-md': animating }"
+                >
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <span class="w-9 h-9 rounded-xl bg-deep-teal text-paper font-extrabold text-sm flex items-center justify-center border border-teal-soft">
@@ -99,16 +132,29 @@
                         <!-- Streak -->
                         <div class="flex items-center gap-1.5 text-deep-teal" title="Streak harian">
                             <x-lucide-flame class="w-4 h-4 text-amber fill-amber" />
-                            <span>{{ auth()->user()->current_streak }} hari</span>
+                            <span x-text="streak + ' hari'">{{ auth()->user()->current_streak }} hari</span>
                         </div>
                         <!-- EXP -->
                         <div class="flex items-center gap-1.5 text-deep-teal" title="Total EXP">
-                            <x-lucide-zap class="w-4 h-4 text-amber fill-amber" />
-                            <span>{{ auth()->user()->total_exp }} EXP</span>
+                            <span :class="{ 'animate-bounce': animating }" class="inline-flex">
+                                <x-lucide-zap class="w-4 h-4 text-amber fill-amber" />
+                            </span>
+                            <span x-text="currentExp + ' EXP'" :class="{ 'text-amber-dark font-extrabold': animating }">{{ auth()->user()->total_exp }} EXP</span>
                         </div>
                     </div>
 
-                    <x-exp-bar :currentExp="auth()->user()->total_exp" :showLabel="false" size="sm" />
+                    <div class="w-full">
+                        <div class="w-full bg-paper-dark rounded-full h-2 overflow-hidden border border-paper-dark">
+                            <div
+                                class="bg-amber h-full rounded-full transition-all duration-700 ease-out border-b-2 border-amber-dark"
+                                :style="'width: ' + progress + '%'"
+                                role="progressbar"
+                                :aria-valuenow="progress"
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                            ></div>
+                        </div>
+                    </div>
 
                     <!-- Logout button -->
                     <form method="POST" action="{{ route('logout') }}" class="mt-1">
@@ -131,8 +177,8 @@
         </aside>
 
         <!-- Main Content Area -->
-        <main class="flex-1 md:pl-64 lg:pl-72 flex justify-center pb-20 md:pb-0 min-h-screen w-full">
-            <div class="{{ $maxWidth ?? 'w-full max-w-[480px]' }} min-h-screen flex flex-col">
+        <main class="flex-1 md:pl-64 lg:pl-72 flex justify-center {{ $isFeed ? 'h-[100dvh] max-h-[100dvh] overflow-hidden pb-0' : 'pb-20 md:pb-0 min-h-screen' }} w-full">
+            <div class="{{ $maxWidth ?? 'w-full max-w-[480px]' }} {{ $isFeed ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-screen' }} flex flex-col">
                 {{ $slot }}
             </div>
         </main>

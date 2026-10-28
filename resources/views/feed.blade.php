@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout :isFeed="true">
     <div
         x-data="{
             tab: '{{ $activeTab }}',
@@ -56,7 +56,7 @@
         class="relative w-full h-[100dvh] max-h-[100dvh] overflow-hidden bg-paper"
     >
         <!-- Minimal Floating Top Header: Clean "Untukmu" & "Terbaru" Tabs -->
-        <header class="absolute top-0 inset-x-0 z-30 flex items-center justify-center pt-3 pb-2 px-4 pointer-events-none select-none">
+        <header class="fixed top-0 inset-x-0 md:left-64 lg:left-72 z-30 flex items-center justify-center pt-3 pb-2 px-4 pointer-events-none select-none">
             <div class="flex items-center gap-6 px-5 py-1.5 rounded-full bg-deep-teal/75 backdrop-blur-md border border-white/15 pointer-events-auto shadow-sm">
                 <a
                     href="{{ route('home', ['tab' => 'for-you']) }}"
