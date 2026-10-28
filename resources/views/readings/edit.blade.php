@@ -4,12 +4,13 @@
             step: 1,
             title: @js(old('title', $reading->title)),
             description: @js(old('description', $reading->description ?? '')),
-            selectedTags: @js(old('tags', $reading->tags->pluck('id')->toArray())),
+            selectedTags: @js(array_values(array_map('intval', (array) old('tags', $reading->tags->pluck('id')->toArray())))),
             slides: @js(old('slides', $reading->slides->map(fn($s) => [
                 'type' => $s->type,
                 'bg_color' => $s->bg_color,
                 'body' => $s->body ?? '',
                 'source' => $s->source ?? '',
+                'media_path' => $s->media_path ?? '',
             ])->toArray())),
             hasQuiz: @js($reading->quiz ? true : false),
             quizQuestion: @js(old('quiz_question', $reading->quiz->question ?? '')),
@@ -20,7 +21,7 @@
 
             addSlide() {
                 if (this.slides.length >= 8) return;
-                this.slides.push({ type: 'text', bg_color: 'paper', body: '', source: '' });
+                this.slides.push({ type: 'text', bg_color: 'paper', body: '', source: '', media_path: '' });
                 this.previewSlideIndex = this.slides.length - 1;
             },
             removeSlide(index) {
@@ -39,11 +40,25 @@
                 this.previewSlideIndex = target;
             },
             toggleTag(id) {
-                if (this.selectedTags.includes(id)) {
-                    this.selectedTags = this.selectedTags.filter(i => i !== id);
+                id = Number(id);
+                if (this.isTagSelected(id)) {
+                    this.selectedTags = this.selectedTags.filter(i => Number(i) !== id);
                 } else {
-                    if (this.selectedTags.length >= 3) return;
+                    if (this.selectedTags.length >= 3) {
+                        alert('Maksimal 3 topik tag');
+                        return;
+                    }
                     this.selectedTags.push(id);
+                }
+            },
+            isTagSelected(id) {
+                return this.selectedTags.some(t => Number(t) === Number(id));
+            },
+            validateFileSize(event, maxMb, label) {
+                const file = event.target.files && event.target.files[0];
+                if (file && file.size > maxMb * 1024 * 1024) {
+                    alert(`${label} yang dipilih melebihi batas ${maxMb} MB (Ukuran: ${(file.size / (1024 * 1024)).toFixed(2)} MB). Silakan pilih berkas yang lebih kecil.`);
+                    event.target.value = '';
                 }
             }
         }"
@@ -77,6 +92,7 @@
             action="{{ route('readings.update', $reading) }}"
             enctype="multipart/form-data"
             class="flex flex-col gap-6"
+            @submit="if (selectedTags.length === 0) { $event.preventDefault(); alert('Pilih minimal 1 topik tag.'); return false; }"
         >
             @csrf
             @method('PUT')
@@ -102,27 +118,31 @@
 
                 <!-- Tags -->
                 <div>
-                    <x-input-label value="Pilih Topik Tag (Pilih 1 - 3)" />
+                    <div class="flex items-center justify-between mb-2">
+                        <x-input-label value="Pilih Topik Tag (Pilih 1 - 3)" class="!mb-0" />
+                        <span class="text-xs font-extrabold text-kilat-dark" x-text="`${selectedTags.length}/3 dipilih`"></span>
+                    </div>
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         @foreach ($tags as $tag)
                             <button
                                 type="button"
                                 @click="toggleTag({{ $tag->id }})"
-                                :class="selectedTags.includes({{ $tag->id }})
+                                :class="isTagSelected({{ $tag->id }})
                                     ? 'bg-kilat text-deep-teal border-b-4 border-kilat-dark'
                                     : 'bg-paper text-deep-teal border-2 border-paper-dark border-b-4 hover:bg-white'"
                                 class="py-2.5 px-3 rounded-xl font-bold text-xs text-left flex items-center justify-between cursor-pointer transition-all active:translate-y-0.5 active:border-b-2"
                             >
                                 <span>{{ $tag->name }}</span>
-                                <template x-if="selectedTags.includes({{ $tag->id }})">
+                                <template x-if="isTagSelected({{ $tag->id }})">
                                     <x-lucide-check class="w-3.5 h-3.5 stroke-[3]" />
                                 </template>
                             </button>
-                            <template x-if="selectedTags.includes({{ $tag->id }})">
-                                <input type="hidden" name="tags[]" value="{{ $tag->id }}">
-                            </template>
                         @endforeach
                     </div>
+                    <!-- Form hidden inputs for selected tags -->
+                    <template x-for="tagId in selectedTags" :key="tagId">
+                        <input type="hidden" name="tags[]" :value="tagId">
+                    </template>
                 </div>
 
                 <!-- Status -->
@@ -153,6 +173,7 @@
 
                 <template x-for="(slide, index) in slides" :key="index">
                     <div class="card-paper p-4 sm:p-5 border-2 border-paper-dark rounded-2xl flex flex-col gap-3.5">
+                        <input type="hidden" :name="`slides[${index}][media_path]`" :value="slide.media_path || ''">
                         <div class="flex items-center justify-between">
                             <span class="font-extrabold text-xs text-deep-teal" x-text="`Slide ${index + 1}`"></span>
                             <div class="flex items-center gap-1.5">
@@ -188,6 +209,64 @@
                                 </select>
                             </div>
                         </div>
+
+                        <template x-if="slide.type === 'image'">
+                            <div class="pt-2 border-t border-paper-dark flex flex-col gap-2">
+                                <template x-if="slide.media_path">
+                                    <div class="p-2.5 bg-paper rounded-xl border border-paper-dark flex items-center gap-3">
+                                        <img :src="'/storage/' + slide.media_path" class="w-14 h-14 object-cover rounded-lg border border-paper-dark shrink-0">
+                                        <div class="flex-1 min-w-0">
+                                            <span class="text-xs font-extrabold text-deep-teal block">Gambar Tersimpan</span>
+                                            <span class="text-[10px] text-deep-teal/60 truncate block" x-text="slide.media_path"></span>
+                                            <span class="text-[10px] text-amber-dark font-semibold">Pilih file baru di bawah ini hanya jika ingin menggantinya.</span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div>
+                                    <label class="text-[10px] font-extrabold uppercase text-deep-teal/60 block mb-1">Unggah Gambar (JPG/PNG/WebP, Maks 2MB)</label>
+                                    <input
+                                        type="file"
+                                        :name="`slides[${index}][image]`"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        @change="validateFileSize($event, 2, 'Gambar')"
+                                        class="w-full text-xs font-semibold text-deep-teal file:mr-2 file:py-1 file:px-2.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-paper-dark file:text-deep-teal hover:file:bg-kilat cursor-pointer"
+                                    >
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="slide.type === 'audio'">
+                            <div class="pt-2 border-t border-paper-dark flex flex-col gap-2">
+                                <template x-if="slide.media_path">
+                                    <div class="p-3 bg-paper rounded-xl border border-paper-dark flex flex-col gap-1.5">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs font-extrabold text-deep-teal flex items-center gap-1.5">
+                                                <x-lucide-volume-2 class="w-3.5 h-3.5 text-amber" />
+                                                Audio Tersimpan
+                                            </span>
+                                            <span class="text-[10px] text-amber-dark font-semibold">Pilih file baru jika ingin mengganti</span>
+                                        </div>
+                                        <audio controls class="w-full h-8" preload="none">
+                                            <source :src="'/storage/' + slide.media_path">
+                                            Browser Anda tidak mendukung audio player.
+                                        </audio>
+                                    </div>
+                                </template>
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="text-[10px] font-extrabold uppercase text-deep-teal/60">Unggah Audio (M4A/MP3/OGG/AAC, Maks 10MB)</label>
+                                        <span class="text-[10px] text-deep-teal/60 font-bold">.m4a, .mp3, .ogg, .wav</span>
+                                    </div>
+                                    <input
+                                        type="file"
+                                        :name="`slides[${index}][audio]`"
+                                        accept=".m4a,.mp3,.ogg,.wav,.aac,.flac"
+                                        @change="validateFileSize($event, 10, 'Audio')"
+                                        class="w-full text-xs font-semibold text-deep-teal file:mr-2 file:py-1 file:px-2.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-paper-dark file:text-deep-teal hover:file:bg-kilat cursor-pointer"
+                                    >
+                                </div>
+                            </div>
+                        </template>
 
                         <div>
                             <label class="text-[10px] font-bold uppercase text-deep-teal/60 block mb-1">Konten / Isi</label>

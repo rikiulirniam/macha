@@ -5,7 +5,7 @@
             activeMobileTab: 'editor', // 'editor' | 'preview'
             title: '{{ old('title', '') }}',
             description: '{{ old('description', '') }}',
-            selectedTags: @js(old('tags', [])),
+            selectedTags: @js(array_values(array_map('intval', (array) old('tags', [])))),
             slides: @js(old('slides', [
                 ['type' => 'text', 'bg_color' => 'paper', 'body' => '', 'source' => '']
             ])),
@@ -69,14 +69,27 @@
                 }
             },
             toggleTag(id) {
-                if (this.selectedTags.includes(id)) {
-                    this.selectedTags = this.selectedTags.filter(i => i !== id);
+                id = Number(id);
+                if (this.isTagSelected(id)) {
+                    this.selectedTags = this.selectedTags.filter(i => Number(i) !== id);
                 } else {
                     if (this.selectedTags.length >= 3) {
                         alert('Maksimal memilih 3 tag topik.');
                         return;
                     }
                     this.selectedTags.push(id);
+                }
+            },
+            isTagSelected(id) {
+                return this.selectedTags.some(t => Number(t) === Number(id));
+            },
+            handleAudioFile(index, event) {
+                const file = event.target.files && event.target.files[0];
+                if (file) {
+                    if (!this.slides[index]) return;
+                    this.slides[index].audioFileName = file.name;
+                    this.slides[index].audioFileSize = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+                    this.slides[index].audioUrl = URL.createObjectURL(file);
                 }
             }
         }"
@@ -177,21 +190,22 @@
                                 <button
                                     type="button"
                                     @click="toggleTag({{ $tag->id }})"
-                                    :class="selectedTags.includes({{ $tag->id }})
+                                    :class="isTagSelected({{ $tag->id }})
                                         ? 'bg-kilat text-deep-teal border-b-4 border-kilat-dark'
                                         : 'bg-paper text-deep-teal border-2 border-paper-dark border-b-4 hover:bg-white'"
                                     class="py-2.5 px-3 rounded-xl font-bold text-xs text-left flex items-center justify-between cursor-pointer transition-all active:translate-y-0.5 active:border-b-2"
                                 >
                                     <span>{{ $tag->name }}</span>
-                                    <template x-if="selectedTags.includes({{ $tag->id }})">
+                                    <template x-if="isTagSelected({{ $tag->id }})">
                                         <x-lucide-check class="w-3.5 h-3.5 stroke-[3]" />
                                     </template>
                                 </button>
-                                <template x-if="selectedTags.includes({{ $tag->id }})">
-                                    <input type="hidden" name="tags[]" value="{{ $tag->id }}">
-                                </template>
                             @endforeach
                         </div>
+                        <!-- Form hidden inputs for tags -->
+                        <template x-for="tagId in selectedTags" :key="tagId">
+                            <input type="hidden" name="tags[]" :value="tagId">
+                        </template>
                     </div>
                 </div>
 
@@ -416,13 +430,27 @@
                                     <template x-if="slide.type === 'audio'">
                                         <div class="flex flex-col gap-3">
                                             <div>
-                                                <label class="text-[11px] font-extrabold uppercase text-deep-teal/70 block mb-1.5">Unggah Audio (MP3/M4A/OGG, Maks 5MB)</label>
+                                                <div class="flex items-center justify-between mb-1.5">
+                                                    <label class="text-[11px] font-extrabold uppercase text-deep-teal/70">Unggah Audio (M4A/MP3/OGG/AAC, Maks 10MB)</label>
+                                                    <span class="text-[10px] text-deep-teal/60 font-bold">.m4a, .mp3, .ogg, .wav</span>
+                                                </div>
                                                 <input
                                                     type="file"
                                                     :name="`slides[${index}][audio]`"
-                                                    accept="audio/mp3,audio/m4a,audio/ogg"
+                                                    accept=".m4a,.mp3,.ogg,.wav,.aac,.flac"
+                                                    @change="handleAudioFile(index, $event)"
                                                     class="w-full text-xs font-semibold text-deep-teal file:mr-2.5 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-paper-dark file:text-deep-teal hover:file:bg-kilat cursor-pointer"
                                                 >
+                                                <div x-show="slide.audioFileName" class="mt-2 p-2.5 rounded-xl bg-kilat/20 border-2 border-kilat/40 flex items-center justify-between text-xs">
+                                                    <div class="flex items-center gap-2 min-w-0">
+                                                        <x-lucide-music class="w-4 h-4 text-deep-teal flex-shrink-0" />
+                                                        <span class="font-extrabold text-deep-teal truncate" x-text="slide.audioFileName"></span>
+                                                        <span class="text-deep-teal/70 font-bold text-[11px] flex-shrink-0" x-text="`(${slide.audioFileSize})`"></span>
+                                                    </div>
+                                                    <span class="text-[11px] font-extrabold text-kilat-dark px-2 py-0.5 rounded-md bg-kilat/30 flex-shrink-0">
+                                                        ✓ Terpilih
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div>
                                                 <label class="text-[11px] font-extrabold uppercase text-deep-teal/70 block mb-1.5">Transkrip / Deskripsi Audio</label>
@@ -550,11 +578,19 @@
 
                                     <!-- Audio Type -->
                                     <template x-if="slides[previewSlideIndex]?.type === 'audio'">
-                                        <div class="flex flex-col items-center gap-3 p-4 rounded-2xl bg-black/10 my-auto text-center">
+                                        <div class="flex flex-col items-center gap-3 p-4 rounded-2xl bg-black/10 my-auto text-center w-full">
                                             <div class="w-14 h-14 rounded-full bg-kilat text-deep-teal flex items-center justify-center border-b-4 border-kilat-dark shadow-sm">
                                                 <x-lucide-play class="w-7 h-7 fill-current translate-x-0.5" />
                                             </div>
-                                            <p class="text-xs font-bold" x-text="slides[previewSlideIndex]?.body || 'Audio Player & Narasi'"></p>
+                                            <div class="w-full">
+                                                <p class="text-xs font-bold truncate" x-text="slides[previewSlideIndex]?.audioFileName || slides[previewSlideIndex]?.body || 'Audio Player & Narasi'"></p>
+                                                <template x-if="slides[previewSlideIndex]?.audioFileSize">
+                                                    <span class="text-[10px] font-semibold opacity-70" x-text="slides[previewSlideIndex]?.audioFileSize"></span>
+                                                </template>
+                                            </div>
+                                            <template x-if="slides[previewSlideIndex]?.audioUrl">
+                                                <audio :src="slides[previewSlideIndex]?.audioUrl" controls class="w-full mt-1 h-7"></audio>
+                                            </template>
                                         </div>
                                     </template>
 

@@ -127,31 +127,36 @@ class ReadingController extends Controller
     /**
      * List comments for a reading (AJAX).
      */
-    public function comments(Reading $reading): JsonResponse
+    public function comments(Request $request, Reading $reading): JsonResponse
     {
         $user = auth()->user();
+        $perPage = max(1, min(50, (int) $request->input('per_page', 10)));
+        $total = $reading->comments()->count();
 
-        $comments = $reading->comments()
+        $paginated = $reading->comments()
             ->with('user')
             ->latest()
-            ->get()
-            ->map(function (Comment $c) use ($user, $reading) {
-                return [
-                    'id' => $c->id,
-                    'body' => e($c->body),
-                    'user' => [
-                        'name' => $c->user->name,
-                        'username' => $c->user->username,
-                        'initials' => $c->user->initials,
-                    ],
-                    'created_at_human' => $c->created_at->locale('id')->diffForHumans(),
-                    'can_delete' => $user && ($user->id === $c->user_id || $user->id === $reading->user_id),
-                ];
-            });
+            ->paginate($perPage);
+
+        $comments = $paginated->getCollection()->map(function (Comment $c) use ($user, $reading) {
+            return [
+                'id' => $c->id,
+                'body' => e($c->body),
+                'user' => [
+                    'name' => $c->user->name,
+                    'username' => $c->user->username,
+                    'initials' => $c->user->initials,
+                ],
+                'created_at_human' => $c->created_at->locale('id')->diffForHumans(),
+                'can_delete' => $user && ($user->id === $c->user_id || $user->id === $reading->user_id),
+            ];
+        });
 
         return response()->json([
             'comments' => $comments,
-            'total' => $comments->count(),
+            'total' => $total,
+            'current_page' => $paginated->currentPage(),
+            'has_more' => $paginated->hasMorePages(),
         ]);
     }
 
@@ -257,7 +262,7 @@ class ReadingController extends Controller
     public function showPublic(string $slug): View
     {
         $reading = Reading::published()
-            ->with(['user', 'tags', 'slides', 'quiz', 'likes', 'comments.user'])
+            ->with(['user', 'tags', 'slides', 'quiz', 'likes', 'comments.user', 'progresses'])
             ->where('slug', $slug)
             ->firstOrFail();
 
@@ -445,12 +450,18 @@ class ReadingController extends Controller
 
             foreach ($validated['slides'] as $pos => $slideData) {
                 $position = $pos + 1;
-                $mediaPath = $existingSlides[$position]->media_path ?? null;
+                // Preserve media_path from form payload or existing slide by position
+                $mediaPath = ! empty($slideData['media_path']) ? $slideData['media_path'] : ($existingSlides[$position]->media_path ?? null);
 
                 if ($slideData['type'] === 'image' && $request->hasFile("slides.{$pos}.image")) {
                     $mediaPath = $request->file("slides.{$pos}.image")->store('readings/images', 'public');
                 } elseif ($slideData['type'] === 'audio' && $request->hasFile("slides.{$pos}.audio")) {
                     $mediaPath = $request->file("slides.{$pos}.audio")->store('readings/audio', 'public');
+                }
+
+                // Clear mediaPath if slide type is text or quote
+                if (! in_array($slideData['type'], ['image', 'audio'])) {
+                    $mediaPath = null;
                 }
 
                 ReadingSlide::create([

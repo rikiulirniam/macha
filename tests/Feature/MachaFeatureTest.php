@@ -7,9 +7,12 @@ use App\Models\ExpLog;
 use App\Models\Reading;
 use App\Models\ReadingQuiz;
 use App\Models\ReadingSlide;
+use App\Models\Tag;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class MachaFeatureTest extends TestCase
@@ -43,18 +46,28 @@ class MachaFeatureTest extends TestCase
         $response->assertOk()
             ->assertJson([
                 'success' => true,
+                'already_completed' => false,
                 'exp_awarded' => 10,
+                'total_exp' => 10,
+                'current_streak' => 1,
+                'level' => 1,
+                'progress_to_next_level' => 10,
             ]);
 
         $reader->refresh();
         $this->assertSame(10, $reader->total_exp);
+        $this->assertSame(1, $reader->current_streak);
 
         // Second completion of same reading -> 0 EXP awarded
         $secondResponse = $this->actingAs($reader)->postJson("/readings/{$reading->id}/complete");
         $secondResponse->assertOk()
             ->assertJson([
                 'success' => true,
+                'already_completed' => true,
                 'exp_awarded' => 0,
+                'total_exp' => 10,
+                'level' => 1,
+                'progress_to_next_level' => 10,
             ]);
 
         $reader->refresh();
@@ -279,5 +292,137 @@ class MachaFeatureTest extends TestCase
         $commenterDelete->assertOk();
 
         $this->assertSoftDeleted('comments', ['id' => $comment->id]);
+    }
+
+    public function test_creator_can_upload_m4a_audio_slide(): void
+    {
+        Storage::fake('public');
+
+        $creator = User::factory()->create();
+        $tag = Tag::create(['name' => 'Teknologi', 'slug' => 'teknologi', 'icon' => 'cpu']);
+
+        $m4aFile = UploadedFile::fake()->create('narasi.m4a', 2048, 'audio/mp4');
+
+        $response = $this->actingAs($creator)->post('/readings', [
+            'title' => 'Podcast Micro AI',
+            'tags' => [$tag->id],
+            'status' => 'published',
+            'slides' => [
+                [
+                    'type' => 'audio',
+                    'bg_color' => 'teal',
+                    'body' => 'Transkrip rekaman suara tentang kecerdasan buatan.',
+                    'audio' => $m4aFile,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('readings.my'));
+
+        $reading = Reading::where('title', 'Podcast Micro AI')->first();
+        $this->assertNotNull($reading);
+
+        $slide = $reading->slides()->first();
+        $this->assertNotNull($slide);
+        $this->assertSame('audio', $slide->type);
+        $this->assertNotNull($slide->media_path);
+
+        Storage::disk('public')->assertExists($slide->media_path);
+
+        // Also test .m4a created by recorders with audio/x-m4a or video/mp4 MIME
+        $recorderM4a = UploadedFile::fake()->create('voicenote.m4a', 3072, 'video/mp4');
+        $response2 = $this->actingAs($creator)->post('/readings', [
+            'title' => 'Voice Note Episode 2',
+            'tags' => [$tag->id],
+            'status' => 'published',
+            'slides' => [
+                [
+                    'type' => 'audio',
+                    'bg_color' => 'paper',
+                    'body' => 'Episode kedua.',
+                    'audio' => $recorderM4a,
+                ],
+            ],
+        ]);
+        $response2->assertRedirect(route('readings.my'));
+        $reading2 = Reading::where('title', 'Voice Note Episode 2')->first();
+        $this->assertNotNull($reading2);
+        Storage::disk('public')->assertExists($reading2->slides()->first()->media_path);
+    }
+
+    public function test_draft_reading_retains_audio_and_image_when_published(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        $tag = Tag::create(['name' => 'Design', 'slug' => 'design', 'icon' => 'palette']);
+
+        $imageFile = UploadedFile::fake()->image('illustration.png', 400, 400);
+        $audioFile = UploadedFile::fake()->create('track.m4a', 2048, 'audio/mp4');
+
+        // 1. Create draft with image and audio
+        $storeResponse = $this->actingAs($user)->post('/readings', [
+            'title' => 'Draft Media Multi-Slide',
+            'tags' => [$tag->id],
+            'status' => 'draft',
+            'slides' => [
+                [
+                    'type' => 'image',
+                    'bg_color' => 'paper',
+                    'body' => 'Gambar di draft',
+                    'image' => $imageFile,
+                ],
+                [
+                    'type' => 'audio',
+                    'bg_color' => 'teal',
+                    'body' => 'Audio di draft',
+                    'audio' => $audioFile,
+                ],
+            ],
+        ]);
+
+        $storeResponse->assertRedirect(route('readings.my'));
+        $reading = Reading::where('title', 'Draft Media Multi-Slide')->first();
+        $this->assertNotNull($reading);
+        $this->assertSame('draft', $reading->status);
+
+        $initialSlides = $reading->slides()->orderBy('position')->get();
+        $this->assertCount(2, $initialSlides);
+        $savedImagePath = $initialSlides[0]->media_path;
+        $savedAudioPath = $initialSlides[1]->media_path;
+        $this->assertNotNull($savedImagePath);
+        $this->assertNotNull($savedAudioPath);
+
+        // 2. Publish the draft without re-uploading the files
+        $updateResponse = $this->actingAs($user)->put("/readings/{$reading->id}", [
+            'title' => 'Draft Media Multi-Slide Telah Terbit',
+            'tags' => [$tag->id],
+            'status' => 'published',
+            'slides' => [
+                [
+                    'type' => 'image',
+                    'bg_color' => 'paper',
+                    'body' => 'Gambar di terbit',
+                    'media_path' => $savedImagePath,
+                ],
+                [
+                    'type' => 'audio',
+                    'bg_color' => 'teal',
+                    'body' => 'Audio di terbit',
+                    'media_path' => $savedAudioPath,
+                ],
+            ],
+        ]);
+
+        $updateResponse->assertRedirect(route('readings.my'));
+
+        $reading->refresh();
+        $this->assertSame('published', $reading->status);
+        $this->assertSame('Draft Media Multi-Slide Telah Terbit', $reading->title);
+
+        $updatedSlides = $reading->slides()->orderBy('position')->get();
+        $this->assertCount(2, $updatedSlides);
+        $this->assertSame($savedImagePath, $updatedSlides[0]->media_path);
+        $this->assertSame($savedAudioPath, $updatedSlides[1]->media_path);
     }
 }

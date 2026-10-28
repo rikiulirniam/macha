@@ -1,5 +1,5 @@
 <x-app-layout :maxWidth="'w-full max-w-3xl'">
-    <div class="p-4 sm:p-6 w-full flex flex-col gap-6">
+    <div class="p-4 sm:p-6 pb-16 sm:pb-8 w-full flex flex-col gap-6">
         <!-- Top bar with Title and Create New button -->
         <div class="flex items-center justify-between border-b-2 border-paper-dark pb-4">
             <div>
