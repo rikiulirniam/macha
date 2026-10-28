@@ -1,5 +1,5 @@
 <x-app-layout :maxWidth="'w-full max-w-xl'">
-    <div class="p-4 sm:p-6 w-full flex flex-col gap-6 select-none">
+    <div class="p-4 sm:p-6 pb-36 sm:pb-28 w-full flex flex-col gap-6 select-none">
         <!-- Header & Countdown -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b-2 border-paper-dark pb-4">
             <div>
@@ -152,7 +152,7 @@
 
     <!-- Sticky Bottom Bar for Current User's Own Rank (Always visible even if outside top 20) -->
     @auth
-        <aside class="fixed bottom-14 md:bottom-3 left-1/2 -translate-x-1/2 z-40 w-full max-w-xl px-4 select-none">
+        <aside class="fixed bottom-[68px] md:bottom-4 left-1/2 -translate-x-1/2 z-30 w-full max-w-xl px-4 select-none">
             <div class="p-3.5 bg-deep-teal text-paper rounded-2xl border-2 border-teal-soft shadow-none flex items-center justify-between">
                 <div class="flex items-center gap-3 min-w-0">
                     <span class="w-8 h-8 rounded-xl bg-amber text-deep-teal font-extrabold text-xs flex items-center justify-center flex-shrink-0">

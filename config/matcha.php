@@ -13,8 +13,8 @@ return [
         'reading_complete_exp' => 10,
         'quiz_attempt_exp' => 5,
         'quiz_correct_bonus_exp' => 5, // total 10 for correct answers
-        'daily_target_bonus_exp' => 10,
-        'daily_target_count' => 3,
+        'daily_target_bonus_exp' => 0,
+        'daily_target_count' => 1,
         'level_divisor' => 100, // Level = floor(total_exp / 100) + 1
     ],
 

@@ -108,6 +108,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Alias for level_progress.
+     */
+    public function getProgressToNextLevelAttribute(): int
+    {
+        return $this->level_progress;
+    }
+
+    /**
      * Get user initials for avatar fallback.
      */
     public function getInitialsAttribute(): string

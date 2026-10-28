@@ -78,12 +78,28 @@ class GamificationService
             }
 
             // If already completed previously, do not award EXP again
-            if ($progress->completed_at !== null) {
+            $alreadyAwardedExp = ExpLog::where('user_id', $user->id)
+                ->where('reading_id', $reading->id)
+                ->where('source', 'reading_complete')
+                ->exists();
+
+            if ($progress->completed_at !== null || $alreadyAwardedExp) {
+                if ($progress->completed_at === null) {
+                    $progress->update(['completed_at' => $now]);
+                }
+
+                $userFresh = $user->fresh();
+
                 return [
                     'success' => true,
+                    'already_completed' => true,
                     'exp_awarded' => 0,
                     'daily_target_achieved' => false,
                     'badge_unlocked' => null,
+                    'total_exp' => $userFresh->total_exp,
+                    'current_streak' => $userFresh->current_streak,
+                    'level' => $userFresh->level,
+                    'progress_to_next_level' => $userFresh->progress_to_next_level,
                 ];
             }
 
@@ -99,40 +115,48 @@ class GamificationService
                 $expAwarded += $baseExp;
             }
 
-            // Update streak
+            // Update streak immediately upon reading & claiming EXP
             $this->updateStreak($user, $now);
 
-            // Check daily target bonus (3 readings completed in 1 day)
+            // Check daily target (1 reading per day activates daily reading target & badge)
             $dailyTargetAchieved = false;
             $completedTodayCount = ReadingProgress::where('user_id', $user->id)
                 ->whereDate('completed_at', $todayStr)
                 ->count();
 
-            $targetCount = (int) config('matcha.gamification.daily_target_count', 3);
+            $targetCount = (int) config('matcha.gamification.daily_target_count', 1);
             if ($completedTodayCount >= $targetCount) {
-                // Check if bonus already awarded today
-                $alreadyAwardedBonusToday = ExpLog::where('user_id', $user->id)
-                    ->where('source', 'daily_target')
-                    ->whereDate('created_at', $todayStr)
-                    ->exists();
+                $dailyTargetAchieved = true;
+                $bonusExp = (int) config('matcha.gamification.daily_target_bonus_exp', 0);
+                if ($bonusExp > 0) {
+                    $alreadyAwardedBonusToday = ExpLog::where('user_id', $user->id)
+                        ->where('source', 'daily_target')
+                        ->whereDate('created_at', $todayStr)
+                        ->exists();
 
-                if (! $alreadyAwardedBonusToday) {
-                    $bonusExp = (int) config('matcha.gamification.daily_target_bonus_exp', 10);
-                    $this->awardExp($user, $bonusExp, 'daily_target', null, $now);
-                    $expAwarded += $bonusExp;
-                    $dailyTargetAchieved = true;
-                    $this->checkAndAwardBadge($user, 'daily_target');
+                    if (! $alreadyAwardedBonusToday) {
+                        $this->awardExp($user, $bonusExp, 'daily_target', null, $now);
+                        $expAwarded += $bonusExp;
+                    }
                 }
+                $this->checkAndAwardBadge($user, 'daily_target');
             }
 
             // Check badges
             $unlockedBadge = $this->checkReadingBadges($user);
 
+            $userFresh = $user->fresh();
+
             return [
                 'success' => true,
+                'already_completed' => false,
                 'exp_awarded' => $expAwarded,
                 'daily_target_achieved' => $dailyTargetAchieved,
                 'badge_unlocked' => $unlockedBadge,
+                'total_exp' => $userFresh->total_exp,
+                'current_streak' => $userFresh->current_streak,
+                'level' => $userFresh->level,
+                'progress_to_next_level' => $userFresh->progress_to_next_level,
             ];
         });
     }
@@ -140,7 +164,7 @@ class GamificationService
     /**
      * Submit an answer to a reading quiz and award EXP.
      *
-     * @return array{is_correct: bool, exp_awarded: int, explanation: ?string, badge_unlocked: ?Badge}
+     * @return array{is_correct: bool, exp_awarded: int, explanation: ?string, badge_unlocked: ?Badge, already_answered: bool, total_exp: int, current_streak: int, level: int, progress_to_next_level: int}
      */
     public function answerQuiz(User $user, Reading $reading, int $optionIndex): array
     {
@@ -159,11 +183,18 @@ class GamificationService
 
             // If already answered, return previous result without awarding EXP again
             if ($progress->quiz_answered_at !== null) {
+                $userFresh = $user->fresh();
+
                 return [
                     'is_correct' => (bool) $progress->quiz_correct,
                     'exp_awarded' => 0,
                     'explanation' => $quiz->explanation,
                     'badge_unlocked' => null,
+                    'already_answered' => true,
+                    'total_exp' => $userFresh->total_exp,
+                    'current_streak' => $userFresh->current_streak,
+                    'level' => $userFresh->level,
+                    'progress_to_next_level' => $userFresh->progress_to_next_level,
                 ];
             }
 
@@ -185,6 +216,9 @@ class GamificationService
                     $this->awardExp($user, $correctBonus, 'quiz_correct', $reading->id, $now);
                     $expAwarded += $correctBonus;
                 }
+
+                // First EXP claim on reading quiz also maintains/activates daily streak
+                $this->updateStreak($user, $now);
             }
 
             $unlockedBadge = null;
@@ -192,11 +226,18 @@ class GamificationService
                 $unlockedBadge = $this->checkAndAwardBadge($user, 'first_quiz_correct');
             }
 
+            $userFresh = $user->fresh();
+
             return [
                 'is_correct' => $isCorrect,
                 'exp_awarded' => $expAwarded,
                 'explanation' => $quiz->explanation,
                 'badge_unlocked' => $unlockedBadge,
+                'already_answered' => false,
+                'total_exp' => $userFresh->total_exp,
+                'current_streak' => $userFresh->current_streak,
+                'level' => $userFresh->level,
+                'progress_to_next_level' => $userFresh->progress_to_next_level,
             ];
         });
     }

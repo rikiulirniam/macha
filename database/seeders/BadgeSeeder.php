@@ -61,7 +61,7 @@ class BadgeSeeder extends Seeder
             [
                 'key' => 'daily_target',
                 'name' => 'Pembaca Aktif',
-                'description' => 'Mencapai target harian 3 bacaan dalam satu hari.',
+                'description' => 'Membaca dan menghidupkan streak membaca hari ini.',
                 'icon' => 'check-circle-2',
             ],
         ];
