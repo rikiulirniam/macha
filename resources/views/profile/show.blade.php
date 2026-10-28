@@ -1,5 +1,5 @@
 <x-app-layout :maxWidth="'w-full max-w-xl'">
-    <div class="p-4 sm:p-6 w-full flex flex-col gap-6 select-none">
+    <div class="p-4 sm:p-6 pb-16 sm:pb-8 w-full flex flex-col gap-6 select-none">
         <!-- Top Profile Card -->
         <div class="card-paper p-6 border-2 border-paper-dark rounded-3xl flex flex-col gap-5">
             <!-- User Info Header -->

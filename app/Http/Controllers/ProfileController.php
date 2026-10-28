@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
@@ -69,7 +70,21 @@ class ProfileController extends Controller
             $user->email_verified_at = null;
         }
 
-        if ($request->hasFile('avatar')) {
+        if ($request->filled('avatar_base64')) {
+            $base64Data = $request->input('avatar_base64');
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64Data, $typeMatch)) {
+                $rawImage = base64_decode(substr($base64Data, strpos($base64Data, ',') + 1));
+                if ($rawImage !== false) {
+                    if ($user->avatar_path && Storage::disk('public')->exists($user->avatar_path)) {
+                        Storage::disk('public')->delete($user->avatar_path);
+                    }
+                    $ext = in_array(strtolower($typeMatch[1]), ['jpg', 'jpeg']) ? 'jpg' : (strtolower($typeMatch[1]) === 'webp' ? 'webp' : 'png');
+                    $filename = 'avatars/'.Str::random(40).'.'.$ext;
+                    Storage::disk('public')->put($filename, $rawImage);
+                    $user->avatar_path = $filename;
+                }
+            }
+        } elseif ($request->hasFile('avatar')) {
             if ($user->avatar_path && Storage::disk('public')->exists($user->avatar_path)) {
                 Storage::disk('public')->delete($user->avatar_path);
             }
