@@ -6,6 +6,7 @@ use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Badge;
 use App\Models\Tag;
 use App\Models\User;
+use App\Services\GamificationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,10 @@ use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
+    public function __construct(
+        protected GamificationService $gamificationService
+    ) {}
+
     /**
      * Display the logged in user's profile.
      */
@@ -123,6 +128,9 @@ class ProfileController extends Controller
 
     private function renderProfileView(User $user, bool $isOwner): View
     {
+        $progressiveCategories = $this->gamificationService->getProgressiveCategories($user);
+        $earnedBadges = $user->badges()->orderByPivot('earned_at', 'desc')->get();
+
         $allBadges = Badge::all();
         $userBadgeMap = $user->badges()->get()->keyBy('id');
 
@@ -148,6 +156,8 @@ class ProfileController extends Controller
             'isOwner' => $isOwner,
             'weeklyExp' => $weeklyExp,
             'badges' => $badgesWithStatus,
+            'earnedBadges' => $earnedBadges,
+            'progressiveCategories' => $progressiveCategories,
             'readings' => $readings,
             'tags' => $user->tags,
         ]);

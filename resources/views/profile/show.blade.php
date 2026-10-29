@@ -89,58 +89,199 @@
             @endif
         </div>
 
-        <!-- Badges Section (Tabel Badges: earned in amber/kilat, unearned in grey with requirements) -->
+        <!-- 1. Dedicated Earned Badges Showcase (Lencana yang Sudah Dicapai dengan Tooltip Hover) -->
         <div class="card-paper p-5 border-2 border-paper-dark rounded-3xl flex flex-col gap-4">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <h2 class="font-extrabold text-base text-deep-teal flex items-center gap-2">
-                    <x-lucide-award class="w-5 h-5 text-amber" />
-                    <span>Koleksi Lencana ({{ $badges->where('is_earned', true)->count() }}/{{ $badges->count() }})</span>
+                    <x-lucide-trophy class="w-5 h-5 text-amber" />
+                    <span>Lencana yang Diraih ({{ $earnedBadges->count() }})</span>
                 </h2>
+                <span class="text-[11px] font-bold text-deep-teal/60">
+                    Arahkan kursor atau ketuk untuk detail lencana
+                </span>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                @foreach ($badges as $badge)
-                    <div
-                        class="p-3 rounded-2xl border-2 flex flex-col items-center text-center gap-2 transition-all {{ $badge->is_earned ? 'bg-paper border-paper-dark' : 'bg-paper-dark/30 border-paper-dark/60 opacity-60' }}"
-                        title="{{ $badge->description }}"
-                    >
-                        <!-- Badge Icon Circle -->
+            @if ($earnedBadges->isEmpty())
+                <div class="py-8 px-4 rounded-2xl border-2 border-dashed border-paper-dark text-center flex flex-col items-center justify-center gap-2 bg-paper-dark/20">
+                    <div class="w-12 h-12 rounded-2xl bg-paper-dark flex items-center justify-center text-deep-teal/40 border-b-2 border-paper-dark">
+                        <x-lucide-award class="w-6 h-6" />
+                    </div>
+                    <p class="font-extrabold text-xs text-deep-teal">Belum Ada Lencana yang Diraih</p>
+                    <p class="text-[11px] text-deep-teal/70 max-w-sm">
+                        Mulai membaca bacaan inspiratif, menjawab kuis, berdiskusi di kolom komentar, atau menerbitkan karya sendiri untuk mengoleksi lencana pertamamu!
+                    </p>
+                </div>
+            @else
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 sm:gap-4">
+                    @foreach ($earnedBadges as $earnedBadge)
                         <div
-                            class="w-12 h-12 rounded-2xl flex items-center justify-center border-b-2 {{ $badge->is_earned ? 'bg-amber text-deep-teal border-amber-dark' : 'bg-paper-dark text-deep-teal/40 border-paper-dark' }}"
+                            x-data="{ open: false }"
+                            class="relative group flex justify-center"
+                            @mouseenter="open = true"
+                            @mouseleave="open = false"
+                            @focusin="open = true"
+                            @focusout="open = false"
                         >
-                            @if ($badge->icon === 'flame')
-                                <x-lucide-flame class="w-6 h-6 fill-current" />
-                            @elseif ($badge->icon === 'award')
-                                <x-lucide-award class="w-6 h-6" />
-                            @elseif ($badge->icon === 'library')
-                                <x-lucide-library class="w-6 h-6" />
-                            @elseif ($badge->icon === 'trophy')
-                                <x-lucide-trophy class="w-6 h-6" />
-                            @elseif ($badge->icon === 'sparkles')
-                                <x-lucide-sparkles class="w-6 h-6" />
-                            @elseif ($badge->icon === 'message-circle')
-                                <x-lucide-message-circle class="w-6 h-6" />
-                            @elseif ($badge->icon === 'pen-tool')
-                                <x-lucide-pen-tool class="w-6 h-6" />
-                            @elseif ($badge->icon === 'check-circle-2')
-                                <x-lucide-check-circle-2 class="w-6 h-6" />
+                            <!-- Badge Medallion Button -->
+                            <button
+                                type="button"
+                                @click="open = !open"
+                                class="w-full flex flex-col items-center p-3 rounded-2xl bg-paper border-2 border-amber-dark/40 border-b-4 hover:border-amber hover:-translate-y-1 transition-all duration-200 cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-amber select-none"
+                                aria-label="{{ $earnedBadge->name }}"
+                            >
+                                <div class="w-12 h-12 rounded-2xl bg-amber text-deep-teal flex items-center justify-center border-b-2 border-amber-dark shadow-sm group-hover:scale-105 transition-transform">
+                                    <x-badge-icon :name="$earnedBadge->icon" class="w-6 h-6" />
+                                </div>
+                                <span class="font-extrabold text-xs text-deep-teal mt-2 text-center truncate w-full">
+                                    {{ $earnedBadge->name }}
+                                </span>
+                                <span class="text-[9px] font-bold text-amber-900 bg-amber/30 px-1.5 py-0.5 rounded-md mt-1">
+                                    Tingkat {{ $earnedBadge->tier }}
+                                </span>
+                            </button>
+
+                            <!-- Interactive Tooltip (Floating Popover) -->
+                            <div
+                                x-show="open"
+                                x-cloak
+                                x-transition:enter="transition ease-out duration-150 transform"
+                                x-transition:enter-start="opacity-0 translate-y-2 scale-95"
+                                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                x-transition:leave="transition ease-in duration-100 transform"
+                                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                x-transition:leave-end="opacity-0 translate-y-2 scale-95"
+                                class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-30 w-56 sm:w-64 p-3.5 bg-deep-teal text-paper rounded-2xl shadow-2xl border-2 border-deep-teal-dark pointer-events-none"
+                            >
+                                <!-- Tooltip Arrow -->
+                                <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-deep-teal border-r-2 border-b-2 border-deep-teal-dark rotate-45"></div>
+
+                                <div class="relative z-10 flex flex-col gap-1.5">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="font-extrabold text-sm text-amber leading-tight">{{ $earnedBadge->name }}</span>
+                                        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-paper/20 text-paper whitespace-nowrap">
+                                            Tingkat {{ $earnedBadge->tier }}
+                                        </span>
+                                    </div>
+                                    <span class="text-[10px] font-semibold text-paper/70">
+                                        Kategori: {{ $earnedBadge->category_title }}
+                                    </span>
+                                    <p class="text-xs text-paper/90 font-medium leading-relaxed mt-0.5">
+                                        {{ $earnedBadge->description }}
+                                    </p>
+                                    @if ($earnedBadge->pivot?->earned_at)
+                                        <div class="flex items-center gap-1 text-[10px] font-extrabold text-kilat mt-1 pt-1.5 border-t border-paper/10">
+                                            <x-lucide-award class="w-3.5 h-3.5" />
+                                            <span>Didapat {{ \Carbon\Carbon::parse($earnedBadge->pivot->earned_at)->locale('id')->diffForHumans() }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        <!-- 2. Progressive Achievement Categories (9 Kategori Pencapaian Bertingkat) -->
+        <div class="card-paper p-5 border-2 border-paper-dark rounded-3xl flex flex-col gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div>
+                    <h2 class="font-extrabold text-base text-deep-teal flex items-center gap-2">
+                        <x-lucide-sparkles class="w-5 h-5 text-kilat-dark" />
+                        <span>Progres Pencapaian (9 Kategori)</span>
+                    </h2>
+                    <p class="text-xs text-deep-teal/70 font-medium">
+                        Lencana berkembang otomatis ke tingkat berikutnya begitu target tercapai.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                @foreach ($progressiveCategories as $cat)
+                    <div class="p-4 rounded-2xl border-2 border-paper-dark bg-paper flex flex-col justify-between gap-3 shadow-sm">
+                        <!-- Category Header -->
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <div class="w-8 h-8 rounded-xl bg-paper-dark/60 flex items-center justify-center text-deep-teal border border-paper-dark flex-shrink-0">
+                                    <x-badge-icon :name="$cat['icon']" class="w-4 h-4" />
+                                </div>
+                                <span class="font-extrabold text-xs sm:text-sm text-deep-teal truncate">
+                                    {{ $cat['title'] }}
+                                </span>
+                            </div>
+
+                            @if ($cat['is_maxed'])
+                                <span class="text-[10px] font-extrabold text-kilat-dark bg-kilat/20 border border-kilat/30 px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0">
+                                    <x-lucide-check-circle-2 class="w-3 h-3" />
+                                    Maksimal
+                                </span>
                             @else
-                                <x-lucide-book-open class="w-6 h-6" />
+                                <span class="text-[10px] font-extrabold text-deep-teal/80 bg-paper-dark/80 px-2 py-0.5 rounded-full border border-paper-dark flex-shrink-0">
+                                    Tingkat {{ $cat['active_tier'] }}
+                                </span>
                             @endif
                         </div>
 
-                        <div class="flex flex-col">
-                            <span class="font-extrabold text-xs text-deep-teal leading-tight">{{ $badge->name }}</span>
-                            <span class="text-[10px] text-deep-teal/70 font-semibold leading-tight mt-1 line-clamp-2">
-                                {{ $badge->description }}
-                            </span>
-                            @if ($badge->is_earned)
-                                <span class="text-[9px] font-extrabold text-kilat-dark mt-1">
-                                    Didapat {{ \Carbon\Carbon::parse($badge->earned_at)->locale('id')->diffForHumans() }}
+                        <!-- Active Badge Info Card -->
+                        <div class="p-3 rounded-xl bg-paper-dark/30 border border-paper-dark/60 flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border-b-2 {{ $cat['is_maxed'] ? 'bg-amber text-deep-teal border-amber-dark' : 'bg-paper text-deep-teal border-paper-dark' }}">
+                                <x-badge-icon :name="$cat['active_badge']?->icon ?? $cat['icon']" class="w-5 h-5" />
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="font-extrabold text-xs text-deep-teal leading-tight">
+                                        {{ $cat['active_badge']?->name ?? 'Tercapai Semua' }}
+                                    </span>
+                                </div>
+                                <p class="text-[10px] text-deep-teal/70 font-semibold leading-snug mt-0.5 line-clamp-2">
+                                    @if ($cat['is_maxed'])
+                                        Semua lencana di kategori ini berhasil diraih!
+                                    @else
+                                        {{ $cat['active_badge']?->description }}
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar & Count -->
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex items-center justify-between text-[11px] font-extrabold text-deep-teal">
+                                <span>
+                                    @if ($cat['is_maxed'])
+                                        {{ $cat['current_count'] }} {{ $cat['unit'] }} (Selesai)
+                                    @else
+                                        {{ $cat['current_count'] }} / {{ $cat['required_count'] }} {{ $cat['unit'] }}
+                                    @endif
                                 </span>
-                            @else
-                                <span class="text-[9px] font-bold text-deep-teal/50 mt-1">Belum Terbuka</span>
-                            @endif
+                                <span class="{{ $cat['is_maxed'] ? 'text-kilat-dark' : 'text-deep-teal/70' }}">
+                                    {{ $cat['progress_percent'] }}%
+                                </span>
+                            </div>
+                            <div class="h-2.5 w-full bg-paper-dark rounded-full overflow-hidden border border-paper-dark/50">
+                                <div
+                                    class="h-full rounded-full transition-all duration-500 {{ $cat['is_maxed'] ? 'bg-amber border-b border-amber-dark' : 'bg-kilat-dark' }}"
+                                    style="width: {{ $cat['progress_percent'] }}%"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <!-- Tier Indicators / Stepper -->
+                        <div class="flex items-center gap-1.5 pt-1 border-t border-paper-dark/40 flex-wrap">
+                            @foreach ($cat['badges'] as $b)
+                                <div
+                                    class="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-extrabold border transition-all {{ $b->is_earned ? 'bg-amber/25 text-amber-900 border-amber-400' : ($b->id === $cat['active_badge']?->id ? 'bg-kilat/20 text-deep-teal border-kilat-dark' : 'bg-paper-dark/40 text-deep-teal/40 border-paper-dark/50') }}"
+                                    title="{{ $b->name }} (Target: {{ $b->required_count }} {{ $cat['unit'] }})"
+                                >
+                                    <span>T{{ $b->tier }}</span>
+                                    @if ($b->is_earned)
+                                        <x-lucide-check-circle-2 class="w-2.5 h-2.5 text-amber-900" />
+                                    @elseif ($b->id === $cat['active_badge']?->id)
+                                        <span class="text-[8px]">🎯</span>
+                                    @else
+                                        <span class="text-[8px]">🔒</span>
+                                    @endif
+                                </div>
+                            @endforeach
                         </div>
                     </div>
                 @endforeach
