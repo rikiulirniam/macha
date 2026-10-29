@@ -1,4 +1,52 @@
 <x-app-layout :maxWidth="'w-full max-w-3xl'">
+    @php
+        $tierMeta = [
+            1 => [
+                'name' => 'Bronze',
+                'bg_gradient' => 'bg-gradient-to-b from-[#D48956] via-[#B86D3B] to-[#783D17]',
+                'border' => 'border-[#5C2B0C]',
+                'icon_color' => 'text-[#FFE8D6]',
+                'pill_bg' => 'bg-[#5C2B0C] text-[#FCD7BD] border-[#D48956]/50',
+                'stepper_bg' => 'bg-gradient-to-b from-[#D48956] to-[#783D17] text-[#FFE8D6] border-[#5C2B0C]',
+                'stepper_active' => 'bg-[#D48956] text-[#FFE8D6] border-[#5C2B0C] ring-2 ring-[#D48956]/40',
+                'track_color' => 'bg-[#B86D3B]',
+                'text_accent' => 'text-[#8C4A1F]',
+            ],
+            2 => [
+                'name' => 'Silver',
+                'bg_gradient' => 'bg-gradient-to-b from-slate-100 via-slate-300 to-slate-500',
+                'border' => 'border-slate-600',
+                'icon_color' => 'text-slate-900',
+                'pill_bg' => 'bg-slate-800 text-slate-100 border-slate-400/50',
+                'stepper_bg' => 'bg-gradient-to-b from-slate-200 to-slate-500 text-slate-950 border-slate-600',
+                'stepper_active' => 'bg-slate-300 text-slate-950 border-slate-600 ring-2 ring-slate-400/40',
+                'track_color' => 'bg-slate-400',
+                'text_accent' => 'text-slate-700',
+            ],
+            3 => [
+                'name' => 'Gold',
+                'bg_gradient' => 'bg-gradient-to-b from-amber-200 via-yellow-400 to-amber-600',
+                'border' => 'border-amber-700',
+                'icon_color' => 'text-amber-950',
+                'pill_bg' => 'bg-amber-950 text-amber-200 border-amber-400/50',
+                'stepper_bg' => 'bg-gradient-to-b from-amber-300 to-amber-600 text-amber-950 border-amber-700',
+                'stepper_active' => 'bg-amber-400 text-amber-950 border-amber-700 ring-2 ring-amber-400/40',
+                'track_color' => 'bg-amber-500',
+                'text_accent' => 'text-amber-800',
+            ],
+            4 => [
+                'name' => 'Platinum',
+                'bg_gradient' => 'bg-gradient-to-b from-cyan-100 via-sky-300 to-indigo-500',
+                'border' => 'border-indigo-800',
+                'icon_color' => 'text-indigo-950',
+                'pill_bg' => 'bg-indigo-950 text-cyan-200 border-cyan-300/50',
+                'stepper_bg' => 'bg-gradient-to-b from-sky-200 to-indigo-500 text-indigo-950 border-indigo-800',
+                'stepper_active' => 'bg-sky-400 text-indigo-950 border-indigo-800 ring-2 ring-sky-400/40',
+                'track_color' => 'bg-sky-500',
+                'text_accent' => 'text-sky-800',
+            ],
+        ];
+    @endphp
     <div class="p-4 sm:p-6 pb-16 sm:pb-8 w-full flex flex-col gap-6 select-none">
         <!-- Top Profile Card -->
         <div class="card-paper p-6 border-2 border-paper-dark rounded-3xl flex flex-col gap-5">
@@ -144,21 +192,24 @@
                             <button
                                 type="button"
                                 @click="open = !open"
-                                class="w-full flex flex-col items-center p-2.5 sm:p-3 rounded-2xl bg-paper hover:bg-white border-2 border-paper-dark hover:border-amber hover:shadow-md hover:-translate-y-1 transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-amber select-none"
+                                class="w-full flex flex-col items-center p-2 sm:p-2.5 pt-3 pb-3 rounded-2xl bg-paper hover:bg-white border-2 border-paper-dark hover:border-amber hover:shadow-md hover:-translate-y-1 transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-amber select-none"
                                 aria-label="{{ $earnedBadge->name }}"
                             >
+                                @php
+                                    $meta = $tierMeta[$earnedBadge->tier] ?? $tierMeta[1];
+                                @endphp
                                 <!-- Medallion Circle with Level Pill -->
-                                <div class="relative">
-                                    <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-b from-amber-200 via-amber to-amber-500 text-deep-teal flex items-center justify-center border-2 border-amber-dark/60 border-b-4 shadow-sm group-hover:scale-105 transition-transform">
+                                <div class="relative flex flex-col items-center">
+                                    <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl {{ $meta['bg_gradient'] }} {{ $meta['border'] }} {{ $meta['icon_color'] }} flex items-center justify-center border-2 border-b-4 shadow-sm group-hover:scale-105 transition-transform">
                                         <x-badge-icon :name="$earnedBadge->icon" class="w-6 h-6 sm:w-7 sm:h-7" />
                                     </div>
-                                    <span class="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-md bg-deep-teal text-amber text-[9px] font-black border border-amber/40 shadow-xs">
-                                        T{{ $earnedBadge->tier }}
+                                    <span class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full {{ $meta['pill_bg'] }} text-[8px] sm:text-[9px] font-black uppercase tracking-wider border shadow-xs whitespace-nowrap">
+                                        {{ $meta['name'] }}
                                     </span>
                                 </div>
 
                                 <!-- Fully readable badge name (Up to 2 lines without truncation) -->
-                                <span class="font-black text-xs text-deep-teal mt-2 text-center leading-snug line-clamp-2 w-full break-words">
+                                <span class="font-black text-[11px] sm:text-xs text-deep-teal mt-3 text-center leading-tight line-clamp-2 w-full break-normal overflow-hidden">
                                     {{ $earnedBadge->name }}
                                 </span>
 
@@ -185,8 +236,8 @@
                                 <div class="relative z-10 flex flex-col gap-1.5">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="font-black text-sm text-amber leading-tight">{{ $earnedBadge->name }}</span>
-                                        <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-paper/20 text-paper whitespace-nowrap">
-                                            Tingkat {{ $earnedBadge->tier }}
+                                        <span class="text-[10px] font-black px-2 py-0.5 rounded-full border {{ $meta['pill_bg'] }} whitespace-nowrap">
+                                            {{ $meta['name'] }}
                                         </span>
                                     </div>
                                     <span class="text-[10px] font-semibold text-paper/70">
@@ -248,21 +299,31 @@
                                     Maksimal
                                 </span>
                             @else
-                                <span class="text-[11px] font-black text-deep-teal/80 bg-paper-dark/80 px-2.5 py-0.5 rounded-full border border-paper-dark flex-shrink-0">
-                                    Tingkat {{ $cat['active_tier'] }} / {{ $cat['badges']->count() }}
+                                @php
+                                    $activeMeta = $tierMeta[$cat['active_tier']] ?? $tierMeta[1];
+                                @endphp
+                                <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full border flex-shrink-0 {{ $activeMeta['pill_bg'] }}">
+                                    {{ $activeMeta['name'] }}
                                 </span>
                             @endif
                         </div>
 
+                        @php
+                            $targetTier = $cat['active_badge']?->tier ?? ($cat['is_maxed'] ? $cat['badges']->last()->tier : 1);
+                            $targetMeta = $tierMeta[$targetTier] ?? $tierMeta[1];
+                        @endphp
                         <!-- Active Badge Target Block -->
                         <div class="p-3.5 rounded-2xl bg-paper-dark/35 border border-paper-dark/70 flex items-center gap-3.5">
-                            <div class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border-b-2 shadow-xs {{ $cat['is_maxed'] ? 'bg-amber text-deep-teal border-amber-dark' : 'bg-white text-deep-teal border-paper-dark' }}">
+                            <div class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 border-2 border-b-4 shadow-xs {{ $targetMeta['bg_gradient'] }} {{ $targetMeta['border'] }} {{ $targetMeta['icon_color'] }}">
                                 <x-badge-icon :name="$cat['active_badge']?->icon ?? $cat['icon']" class="w-6 h-6" />
                             </div>
                             <div class="flex flex-col min-w-0">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <span class="font-black text-sm text-deep-teal leading-tight">
                                         {{ $cat['active_badge']?->name ?? 'Tercapai Semua' }}
+                                    </span>
+                                    <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border {{ $targetMeta['pill_bg'] }}">
+                                        {{ $targetMeta['name'] }}
                                     </span>
                                 </div>
                                 <p class="text-xs text-deep-teal/70 font-semibold leading-relaxed mt-0.5 line-clamp-2">
@@ -301,25 +362,28 @@
                         <div class="pt-2 border-t border-paper-dark/50">
                             <div class="flex items-center justify-between gap-1 relative">
                                 @foreach ($cat['badges'] as $b)
+                                    @php
+                                        $bMeta = $tierMeta[$b->tier] ?? $tierMeta[1];
+                                    @endphp
                                     <div
                                         class="flex flex-col items-center gap-1 group/tier relative z-10 flex-1"
-                                        title="{{ $b->name }} (Target: {{ $b->required_count }} {{ $cat['unit'] }})"
+                                        title="{{ $b->name }} ({{ $bMeta['name'] }} — Target: {{ $b->required_count }} {{ $cat['unit'] }})"
                                     >
                                         @if ($b->is_earned)
-                                            <div class="w-6 h-6 rounded-full bg-amber text-deep-teal flex items-center justify-center font-black text-[10px] border border-amber-dark shadow-xs">
-                                                <x-lucide-check class="w-3 h-3 stroke-[3]" />
+                                            <div class="w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] border-2 border-b-2 shadow-xs {{ $bMeta['stepper_bg'] }}">
+                                                <x-lucide-check class="w-3.5 h-3.5 stroke-[3]" />
                                             </div>
                                         @elseif ($b->id === $cat['active_badge']?->id)
-                                            <div class="w-6 h-6 rounded-full bg-kilat text-paper flex items-center justify-center font-black text-[10px] border border-kilat-dark ring-2 ring-kilat/25 animate-pulse">
-                                                <span>{{ $b->tier }}</span>
+                                            <div class="w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] border-2 {{ $bMeta['stepper_active'] }} animate-pulse">
+                                                <x-badge-icon :name="$b->icon" class="w-3 h-3" />
                                             </div>
                                         @else
                                             <div class="w-6 h-6 rounded-full bg-paper-dark text-deep-teal/40 flex items-center justify-center font-bold text-[10px] border border-paper-dark/80">
                                                 <x-lucide-lock class="w-2.5 h-2.5" />
                                             </div>
                                         @endif
-                                        <span class="text-[10px] font-extrabold {{ $b->is_earned ? 'text-deep-teal' : ($b->id === $cat['active_badge']?->id ? 'text-kilat-dark' : 'text-deep-teal/40') }}">
-                                            T{{ $b->tier }}
+                                        <span class="text-[9px] sm:text-[10px] font-black {{ $b->is_earned ? 'text-deep-teal' : ($b->id === $cat['active_badge']?->id ? $bMeta['text_accent'] : 'text-deep-teal/40') }}">
+                                            {{ $bMeta['name'] }}
                                         </span>
                                     </div>
                                     @if (! $loop->last)
