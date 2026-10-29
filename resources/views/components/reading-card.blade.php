@@ -55,7 +55,13 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                 left: index * container.offsetWidth,
                 behavior: 'smooth'
             });
-            this.currentSlide = index;
+            clearTimeout(this._slideTimer);
+            this._slideTimer = setTimeout(() => {
+                if (this.currentSlide !== index) {
+                    this.currentSlide = index;
+                    this.recordProgress(index + 1);
+                }
+            }, 320);
         },
         openComments() {
             this.commentsOpen = true;
@@ -315,9 +321,9 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
     <!-- Desktop Nav Arrows End -->
 
     <!-- Bottom Metadata Overlay (Creator, Title, Tag, Reading Time, and Finish Button on last slide) -->
-    <div class="absolute bottom-0 inset-x-0 z-20 px-4 sm:px-5 pt-8 {{ $isFeed ? 'pb-20 md:pb-5' : 'pb-5' }} bg-gradient-to-t from-deep-teal via-deep-teal/90 to-transparent flex flex-col gap-2 pointer-events-none">
+    <div class="absolute bottom-0 inset-x-0 z-20 px-4 sm:px-5 pt-8 {{ $isFeed ? 'pb-20 md:pb-5' : 'pb-5' }} bg-gradient-to-t from-deep-teal via-deep-teal/90 to-transparent flex flex-col pointer-events-none">
         <!-- Right Vertical Action Column (Like, Comment, Share) positioned above the overlay -->
-        <div class="absolute bottom-full right-3 sm:right-4 mb-3 z-30 flex flex-col items-center gap-3 sm:gap-4 pointer-events-auto transition-all duration-300">
+        <div class="absolute bottom-full right-3 sm:right-4 mb-3 z-30 flex flex-col items-center gap-3 sm:gap-4 pointer-events-auto">
             <!-- Like Action Button -->
             <button
                 type="button"
@@ -376,70 +382,72 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
             </button>
         </div>
 
-        <div class="flex items-center gap-2 pointer-events-auto flex-wrap">
-            <!-- Creator Avatar -->
-            <a href="{{ route('profile.user', ['username' => $creator->username]) }}" class="flex items-center gap-1.5 group flex-shrink-0">
-                <span class="w-7 h-7 rounded-lg bg-amber text-deep-teal font-extrabold text-[11px] flex items-center justify-center border border-amber-dark">
-                    {{ $creator->initials }}
-                </span>
-                <span class="font-extrabold text-xs text-paper group-hover:underline truncate max-w-[120px] sm:max-w-[160px]">
-                    {{ $creator->name }}
-                </span>
-            </a>
+        <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2 pointer-events-auto flex-wrap">
+                <!-- Creator Avatar -->
+                <a href="{{ route('profile.user', ['username' => $creator->username]) }}" class="flex items-center gap-1.5 group flex-shrink-0">
+                    <span class="w-7 h-7 rounded-lg bg-amber text-deep-teal font-extrabold text-[11px] flex items-center justify-center border border-amber-dark">
+                        {{ $creator->initials }}
+                    </span>
+                    <span class="font-extrabold text-xs text-paper group-hover:underline truncate max-w-[120px] sm:max-w-[160px]">
+                        {{ $creator->name }}
+                    </span>
+                </a>
 
-            <!-- Tag Chips -->
-            @foreach ($reading->tags->take(2) as $tagIdx => $tag)
-                <span class="px-2 py-0.5 rounded-md bg-black/40 border border-white/20 text-paper text-[10px] font-bold truncate max-w-[110px] {{ $tagIdx > 0 ? 'hidden xs:inline-flex sm:inline-flex' : '' }}">
-                    {{ $tag->name }}
-                </span>
-            @endforeach
+                <!-- Tag Chips -->
+                @foreach ($reading->tags->take(2) as $tagIdx => $tag)
+                    <span class="px-2 py-0.5 rounded-md bg-black/40 border border-white/20 text-paper text-[10px] font-bold truncate max-w-[110px] {{ $tagIdx > 0 ? 'hidden xs:inline-flex sm:inline-flex' : '' }}">
+                        {{ $tag->name }}
+                    </span>
+                @endforeach
 
-            <!-- Estimated Reading Minutes -->
-            <span class="px-1.5 py-0.5 rounded-md bg-kilat text-deep-teal text-[10px] font-extrabold border border-kilat-dark ml-auto flex-shrink-0">
-                {{ $reading->reading_minutes }} mnt
-            </span>
+                <!-- Estimated Reading Minutes -->
+                <span class="px-1.5 py-0.5 rounded-md bg-kilat text-deep-teal text-[10px] font-extrabold border border-kilat-dark ml-auto flex-shrink-0">
+                    {{ $reading->reading_minutes }} mnt
+                </span>
+            </div>
+
+            <!-- Reading Title -->
+            <h2 class="font-sans font-extrabold text-sm sm:text-base text-paper line-clamp-2 leading-snug pointer-events-auto">
+                {{ $reading->title }}
+            </h2>
+
+            <!-- Slide Progress Segment Lines (Dibawah Judul) -->
+            <div class="flex items-center gap-1 sm:gap-1.5 py-0.5 pointer-events-auto" aria-label="Indikator slide bacaan">
+                @foreach ($reading->slides as $i => $s)
+                    <button
+                        type="button"
+                        @click="goToSlide({{ $i }})"
+                        class="h-1 sm:h-1.5 flex-1 rounded-full cursor-pointer transition-all duration-200 focus:outline-none"
+                        :class="currentSlide === {{ $i }} ? 'bg-amber shadow-sm ring-1 ring-amber-dark' : (currentSlide > {{ $i }} ? 'bg-amber/60' : 'bg-white/30 hover:bg-white/50')"
+                        title="Buka slide {{ $i + 1 }}"
+                        aria-label="Slide {{ $i + 1 }}"
+                    ></button>
+                @endforeach
+            </div>
         </div>
 
-        <!-- Reading Title -->
-        <h2 class="font-sans font-extrabold text-sm sm:text-base text-paper line-clamp-2 leading-snug pointer-events-auto">
-            {{ $reading->title }}
-        </h2>
-
-        <!-- Slide Progress Segment Lines (Dibawah Judul) -->
-        <div class="flex items-center gap-1 sm:gap-1.5 py-0.5 pointer-events-auto" aria-label="Indikator slide bacaan">
-            @foreach ($reading->slides as $i => $s)
-                <button
-                    type="button"
-                    @click="goToSlide({{ $i }})"
-                    class="h-1 sm:h-1.5 flex-1 rounded-full cursor-pointer transition-all duration-200 focus:outline-none"
-                    :class="currentSlide === {{ $i }} ? 'bg-amber shadow-sm ring-1 ring-amber-dark' : (currentSlide > {{ $i }} ? 'bg-amber/60' : 'bg-white/30 hover:bg-white/50')"
-                    title="Buka slide {{ $i + 1 }}"
-                    aria-label="Slide {{ $i + 1 }}"
-                ></button>
-            @endforeach
-        </div>
-
-        <!-- Last Slide "Selesai" Action Button -->
+        <!-- Last Slide "Selesai" Action Button (Smooth CSS Grid Collapse/Expand) -->
         <div
-            x-show="currentSlide === totalSlides - 1"
-            x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0 translate-y-2"
-            x-transition:enter-end="opacity-100 translate-y-0"
-            class="pt-0.5 pointer-events-auto"
+            class="finish-button-collapse"
+            :class="{ 'is-expanded': currentSlide === totalSlides - 1 }"
+            :aria-hidden="currentSlide !== totalSlides - 1 ? 'true' : 'false'"
         >
-            <x-button
-                type="button"
-                @click="completeReading()"
-                variant="kilat"
-                size="sm"
-                class="w-full !rounded-xl !py-2.5 text-xs sm:text-sm font-extrabold transition-all"
-                x-bind:class="completed ? '!bg-paper !text-deep-teal border-2 !border-paper-dark hover:!bg-paper-dark/40 shadow-none' : '!bg-kilat !text-deep-teal'"
-            >
-                <span :class="completed ? 'text-deep-teal/60' : 'text-deep-teal'" class="inline-flex mr-1.5">
-                    <x-lucide-check-circle-2 class="w-4 h-4" />
-                </span>
-                <span x-text="completed ? '✓ Sudah Selesai Dibaca (Lihat Ringkasan)' : 'Selesai Membaca (+10 EXP)'"></span>
-            </x-button>
+            <div class="pointer-events-auto">
+                <x-button
+                    type="button"
+                    @click="completeReading()"
+                    variant="kilat"
+                    size="sm"
+                    class="w-full !rounded-xl !py-2.5 text-xs sm:text-sm font-extrabold transition-all"
+                    x-bind:class="completed ? '!bg-paper !text-deep-teal border-2 !border-paper-dark hover:!bg-paper-dark/40 shadow-none' : '!bg-kilat !text-deep-teal'"
+                >
+                    <span :class="completed ? 'text-deep-teal/60' : 'text-deep-teal'" class="inline-flex mr-1.5">
+                        <x-lucide-check-circle-2 class="w-4 h-4" />
+                    </span>
+                    <span x-text="completed ? '✓ Sudah Selesai Dibaca (Lihat Ringkasan)' : 'Selesai Membaca (+10 EXP)'"></span>
+                </x-button>
+            </div>
         </div>
     </div>
 
