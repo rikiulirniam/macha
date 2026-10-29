@@ -78,6 +78,24 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                 username: 'rianhidayat',
                 initials: 'RH',
                 body: 'Langsung tersadar setelah baca slide ke-4. Mulai langkah kecil dari sekarang!'
+            },
+            {
+                name: 'Siti Rahma',
+                username: 'sitirahma',
+                initials: 'SR',
+                body: 'Keren banget pembahasannya! Sangat membuka wawasan baru 💡'
+            },
+            {
+                name: 'Dimas Anggara',
+                username: 'dimasanggara',
+                initials: 'DA',
+                body: 'Setuju banget, konsistensi jauh lebih penting daripada intensitas sesaat 👌'
+            },
+            {
+                name: 'Alya Zahra',
+                username: 'alyazahra',
+                initials: 'AZ',
+                body: 'Penyampaiannya asik dan mudah dipahami, langsung bookmark buat bacaan rutin ✨'
             }
         ],
 
@@ -148,17 +166,23 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
             this.triggerIncomingComment(comment);
         },
 
-        toggleDemoAutoPlay() {
-            this.demoAutoPlay = !this.demoAutoPlay;
-            if (this.demoAutoPlay) {
-                setTimeout(() => this.simulateNextComment(), 800);
-                this.demoInterval = setInterval(() => {
-                    this.simulateNextComment();
-                }, 6500);
-            } else {
-                clearInterval(this.demoInterval);
-                this.demoInterval = null;
-            }
+        startDemoAuto(intervalMs = 2000) {
+            clearInterval(this.demoInterval);
+            this.demoAutoPlay = true;
+            // First simulated comment arrives after 1.2s
+            setTimeout(() => {
+                this.simulateNextComment();
+            }, 1200);
+            // Continues every 2 seconds as requested for video shoot
+            this.demoInterval = setInterval(() => {
+                this.simulateNextComment();
+            }, intervalMs);
+        },
+
+        stopDemoAuto() {
+            clearInterval(this.demoInterval);
+            this.demoInterval = null;
+            this.demoAutoPlay = false;
         },
 
         async pollComments() {
@@ -419,35 +443,12 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
             }
         }
     }"
+    @trigger-demo-auto-{{ $reading->id }}.window="startDemoAuto(2000)"
+    @stop-demo-auto-{{ $reading->id }}.window="stopDemoAuto()"
     @keydown.window="if (isCardInView && ($event.key === 'c' || $event.key === 'C') && !['INPUT', 'TEXTAREA'].includes($event.target.tagName)) { simulateNextComment(); }"
     class="feed-snap-card relative w-full h-[100dvh] max-h-[100dvh] bg-paper overflow-hidden flex flex-col justify-between border-b-2 border-paper-dark"
     data-reading-id="{{ $reading->id }}"
 >
-    <!-- [DEMO/VIDEO-ANIMATION] Demo controls for video recording (bisa dihapus setelah video selesai) -->
-    <div
-        x-show="isCardInView"
-        class="absolute top-16 right-4 sm:top-5 sm:right-5 z-40 flex items-center gap-1.5 opacity-85 hover:opacity-100 transition-opacity select-none"
-    >
-        <button
-            type="button"
-            @click.stop="simulateNextComment()"
-            class="px-2.5 py-1 rounded-full bg-paper/95 text-deep-teal font-extrabold text-[10px] border border-paper-dark border-b-2 hover:bg-kilat hover:border-kilat-dark transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
-            title="Tekan tombol ini atau huruf 'C' pada keyboard untuk trigger komentar realtime"
-        >
-            <span class="w-1.5 h-1.5 rounded-full bg-kilat-dark animate-ping"></span>
-            <span>⚡ +Komentar</span>
-        </button>
-        <button
-            type="button"
-            @click.stop="toggleDemoAutoPlay()"
-            :class="demoAutoPlay ? 'bg-amber text-deep-teal border-amber-dark ring-2 ring-amber/40 font-black' : 'bg-paper/95 text-deep-teal/70 border-paper-dark font-bold'"
-            class="px-2.5 py-1 rounded-full text-[10px] border border-b-2 shadow-md transition-all active:scale-95 cursor-pointer"
-            title="Otomatis munculkan komentar tiap 6 detik untuk video animasi"
-        >
-            <span x-text="demoAutoPlay ? '⏸ Auto (On)' : '▶ Auto'"></span>
-        </button>
-    </div>
-
     <!-- [DEMO/VIDEO-ANIMATION] Animated Realtime New Comment Popup (bisa dihapus setelah video selesai) -->
     <div
         x-show="showCommentPopup && newCommentPopup"
@@ -863,32 +864,9 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
     <!-- Comments Sheet Component -->
     <x-sheet name="commentsOpen">
         <x-slot:header>
-            <div class="flex items-center justify-between w-full pr-6">
-                <div class="flex items-center gap-2">
-                    <span>Komentar</span>
-                    <span class="text-xs sm:text-sm font-extrabold px-2.5 py-0.5 rounded-full bg-paper-dark text-deep-teal" x-text="commentsCount">{{ $reading->comments_count }}</span>
-                </div>
-
-                <!-- [DEMO/VIDEO-ANIMATION] Controls inside sheet header -->
-                <div class="flex items-center gap-1.5">
-                    <button
-                        type="button"
-                        @click.stop="simulateNextComment()"
-                        class="px-2.5 py-1 rounded-xl bg-kilat text-deep-teal font-black text-[11px] border border-kilat-dark hover:brightness-105 active:scale-95 transition-all flex items-center gap-1 shadow-xs cursor-pointer"
-                        title="Simulasi komentar baru realtime"
-                    >
-                        <span>⚡ +Komentar</span>
-                    </button>
-                    <button
-                        type="button"
-                        @click.stop="toggleDemoAutoPlay()"
-                        :class="demoAutoPlay ? 'bg-amber text-deep-teal border-amber-dark ring-2 ring-amber/30 font-black' : 'bg-paper-dark text-deep-teal/60 border-paper-dark font-bold'"
-                        class="px-2.5 py-1 rounded-xl text-[11px] border hover:brightness-105 active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
-                        title="Otomatis munculkan komentar tiap 6 detik"
-                    >
-                        <span x-text="demoAutoPlay ? '⏸ Auto (On)' : '▶ Auto'"></span>
-                    </button>
-                </div>
+            <div class="flex items-center gap-2">
+                <span>Komentar</span>
+                <span class="text-xs sm:text-sm font-extrabold px-2.5 py-0.5 rounded-full bg-paper-dark text-deep-teal" x-text="commentsCount">{{ $reading->comments_count }}</span>
             </div>
         </x-slot:header>
 
@@ -949,6 +927,18 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                 },
                 async postComment() {
                     if (!this.newComment.trim() || this.submitting) return;
+
+                    const commentBody = this.newComment.trim();
+                    const isHaiTrigger = commentBody.toLowerCase() === 'hai';
+                    const isStopTrigger = commentBody.toLowerCase() === 'stop';
+
+                    // [DEMO/VIDEO-ANIMATION] Trigger auto comment stream every 2s when user comments "hai"
+                    if (isHaiTrigger) {
+                        window.dispatchEvent(new CustomEvent('trigger-demo-auto-{{ $reading->id }}'));
+                    } else if (isStopTrigger) {
+                        window.dispatchEvent(new CustomEvent('stop-demo-auto-{{ $reading->id }}'));
+                    }
+
                     this.submitting = true;
                     this.errorMessage = '';
 
@@ -960,7 +950,7 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                                 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
                                 'Accept': 'application/json'
                             },
-                            body: JSON.stringify({ body: this.newComment })
+                            body: JSON.stringify({ body: commentBody })
                         });
                         const data = await res.json();
                         if (res.ok) {
