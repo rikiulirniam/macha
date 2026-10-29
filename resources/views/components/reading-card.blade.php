@@ -443,8 +443,8 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
             }
         }
     }"
-    @trigger-demo-auto-{{ $reading->id }}.window="startDemoAuto(2000)"
-    @stop-demo-auto-{{ $reading->id }}.window="stopDemoAuto()"
+    x-on:trigger-demo-auto-{{ $reading->id }}.window="startDemoAuto(2000)"
+    x-on:pause-demo-auto-{{ $reading->id }}.window="stopDemoAuto()"
     @keydown.window="if (isCardInView && ($event.key === 'c' || $event.key === 'C') && !['INPUT', 'TEXTAREA'].includes($event.target.tagName)) { simulateNextComment(); }"
     class="feed-snap-card relative w-full h-[100dvh] max-h-[100dvh] bg-paper overflow-hidden flex flex-col justify-between border-b-2 border-paper-dark"
     data-reading-id="{{ $reading->id }}"
@@ -936,7 +936,7 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                     if (isHaiTrigger) {
                         window.dispatchEvent(new CustomEvent('trigger-demo-auto-{{ $reading->id }}'));
                     } else if (isStopTrigger) {
-                        window.dispatchEvent(new CustomEvent('stop-demo-auto-{{ $reading->id }}'));
+                        window.dispatchEvent(new CustomEvent('pause-demo-auto-{{ $reading->id }}'));
                     }
 
                     this.submitting = true;
