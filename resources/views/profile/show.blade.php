@@ -371,7 +371,7 @@
         </div>
 
         @if ($isOwner)
-            <!-- PWA Application Card -->
+            <!-- PWA Application Card (Hanya Tampil di Mobile) -->
             <div
                 x-data="{
                     isStandalone: window.pwaManager ? window.pwaManager.isStandalone : false,
@@ -379,7 +379,7 @@
                         window.dispatchEvent(new CustomEvent('open-pwa-install'));
                     }
                 }"
-                class="card-paper p-5 border-2 border-paper-dark rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                class="md:hidden card-paper p-5 border-2 border-paper-dark rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
                 <div class="flex items-center gap-3.5">
                     <div class="w-12 h-12 rounded-2xl bg-deep-teal p-1.5 flex items-center justify-center flex-shrink-0 border-2 border-deep-teal">

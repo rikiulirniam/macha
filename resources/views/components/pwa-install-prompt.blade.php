@@ -6,11 +6,16 @@
         isStandalone: false,
         canInstall: false,
 
+        isMobileView() {
+            return window.matchMedia('(max-width: 767px)').matches ||
+                   /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        },
+
         init() {
             this.isStandalone = window.pwaManager ? window.pwaManager.isStandalone : false;
             this.isIos = window.pwaManager ? window.pwaManager.isIos : false;
 
-            if (this.isStandalone) {
+            if (this.isStandalone || !this.isMobileView()) {
                 return;
             }
 
@@ -23,17 +28,30 @@
 
             if (window.pwaManager && window.pwaManager.deferredPrompt) {
                 this.canInstall = true;
-                setTimeout(() => { this.visible = true; }, 1500);
+                setTimeout(() => {
+                    if (this.isMobileView() && !this.isStandalone) {
+                        this.visible = true;
+                    }
+                }, 1500);
             }
 
             window.addEventListener('pwa-installable', () => {
+                if (!this.isMobileView() || this.isStandalone) return;
                 this.canInstall = true;
-                setTimeout(() => { this.visible = true; }, 1500);
+                setTimeout(() => {
+                    if (this.isMobileView() && !this.isStandalone) {
+                        this.visible = true;
+                    }
+                }, 1500);
             });
 
-            // iOS Safari does not support beforeinstallprompt; show friendly prompt after 2s
+            // iOS Safari does not support beforeinstallprompt; show friendly prompt after 2s on mobile
             if (this.isIos && !this.isStandalone) {
-                setTimeout(() => { this.visible = true; }, 2000);
+                setTimeout(() => {
+                    if (this.isMobileView()) {
+                        this.visible = true;
+                    }
+                }, 2000);
             }
 
             window.addEventListener('pwa-installed', () => {
@@ -42,6 +60,7 @@
             });
 
             window.addEventListener('open-pwa-install', () => {
+                if (!this.isMobileView()) return;
                 if (this.isIos) {
                     this.showIosGuide = true;
                     this.visible = true;
@@ -83,7 +102,7 @@
     x-transition:leave="transition ease-in duration-200 transform"
     x-transition:leave-start="opacity-100 translate-y-0 scale-100"
     x-transition:leave-end="opacity-0 translate-y-8 scale-95"
-    class="fixed bottom-16 md:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:w-96 z-50 pointer-events-auto select-none"
+    class="md:hidden fixed bottom-16 left-3 right-3 sm:left-auto sm:right-6 sm:w-96 z-50 pointer-events-auto select-none"
     aria-live="polite"
 >
     <div class="bg-paper border-2 border-deep-teal border-b-4 rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col gap-3">
