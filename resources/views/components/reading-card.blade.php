@@ -222,7 +222,7 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                     entries.forEach(entry => {
                         this.isCardInView = entry.isIntersecting;
                         if (!entry.isIntersecting && this.demoAutoPlay) {
-                            this.toggleDemoAutoPlay();
+                            this.stopDemoAuto();
                         }
                     });
                 }, { threshold: 0.5 });
@@ -445,7 +445,10 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
     }"
     x-on:trigger-demo-auto-{{ $reading->id }}.window="startDemoAuto(2000)"
     x-on:pause-demo-auto-{{ $reading->id }}.window="stopDemoAuto()"
-    @keydown.window="if (isCardInView && ($event.key === 'c' || $event.key === 'C') && !['INPUT', 'TEXTAREA'].includes($event.target.tagName)) { simulateNextComment(); }"
+    x-on:update-comments-count-{{ $reading->id }}.window="commentsCount = $event.detail.count"
+    x-on:increment-comments-count-{{ $reading->id }}.window="commentsCount++"
+    x-on:decrement-comments-count-{{ $reading->id }}.window="commentsCount = Math.max(0, commentsCount - 1)"
+    @keydown.window="if (isCardInView && !['INPUT', 'TEXTAREA'].includes($event.target.tagName)) { if ($event.key === 'c' || $event.key === 'C') { simulateNextComment(); } else if ($event.key === 's' || $event.key === 'S') { stopDemoAuto(); } }"
     class="feed-snap-card relative w-full h-[100dvh] max-h-[100dvh] bg-paper overflow-hidden flex flex-col justify-between border-b-2 border-paper-dark"
     data-reading-id="{{ $reading->id }}"
 >
@@ -871,140 +874,7 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
         </x-slot:header>
 
         <div
-            x-data="{
-                comments: [],
-                page: 1,
-                hasMore: false,
-                loading: false,
-                loadingMore: false,
-                newComment: '',
-                submitting: false,
-                errorMessage: '',
-                loaded: false,
-                async loadComments(reset = true) {
-                    if (reset) {
-                        this.page = 1;
-                        this.loading = true;
-                    }
-                    try {
-                        const res = await fetch(`/readings/{{ $reading->id }}/comments?page=${this.page}&per_page=10`, {
-                            headers: { 'Accept': 'application/json' }
-                        });
-                        const data = await res.json();
-                        this.comments = reset ? (data.comments || []) : [...this.comments, ...(data.comments || [])];
-                        this.hasMore = !!data.has_more;
-                        this.loaded = true;
-                        if (data.total !== undefined) {
-                            commentsCount = data.total;
-                        }
-                    } catch (e) {
-                        this.loaded = true;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                async loadMore() {
-                    if (!this.hasMore || this.loadingMore) return;
-                    this.loadingMore = true;
-                    const nextPage = this.page + 1;
-                    try {
-                        const res = await fetch(`/readings/{{ $reading->id }}/comments?page=${nextPage}&per_page=10`, {
-                            headers: { 'Accept': 'application/json' }
-                        });
-                        const data = await res.json();
-                        if (data.comments) {
-                            this.comments = [...this.comments, ...data.comments];
-                            this.page = nextPage;
-                            this.hasMore = !!data.has_more;
-                            if (data.total !== undefined) {
-                                commentsCount = data.total;
-                            }
-                        }
-                    } catch (e) {
-                    } finally {
-                        this.loadingMore = false;
-                    }
-                },
-                async postComment() {
-                    if (!this.newComment.trim() || this.submitting) return;
-
-                    const commentBody = this.newComment.trim();
-                    const isHaiTrigger = commentBody.toLowerCase() === 'hai';
-                    const isStopTrigger = commentBody.toLowerCase() === 'stop';
-
-                    // [DEMO/VIDEO-ANIMATION] Trigger auto comment stream every 2s when user comments "hai"
-                    if (isHaiTrigger) {
-                        window.dispatchEvent(new CustomEvent('trigger-demo-auto-{{ $reading->id }}'));
-                    } else if (isStopTrigger) {
-                        window.dispatchEvent(new CustomEvent('pause-demo-auto-{{ $reading->id }}'));
-                    }
-
-                    this.submitting = true;
-                    this.errorMessage = '';
-
-                    try {
-                        const res = await fetch('/readings/{{ $reading->id }}/comments', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify({ body: commentBody })
-                        });
-                        const data = await res.json();
-                        if (res.ok) {
-                            this.comments.unshift(data.comment);
-                            this.newComment = '';
-                            commentsCount++;
-                            if (data.badge_unlocked) {
-                                window.dispatchEvent(new CustomEvent('achievement', {
-                                    detail: {
-                                        name: data.badge_unlocked.name,
-                                        description: data.badge_unlocked.description,
-                                        icon: data.badge_unlocked.icon || 'message-circle'
-                                    }
-                                }));
-                            }
-                        } else {
-                            this.errorMessage = data.message || 'Gagal mengirim komentar.';
-                        }
-                    } catch (e) {
-                        this.errorMessage = 'Terjadi kesalahan jaringan.';
-                    } finally {
-                        this.submitting = false;
-                    }
-                },
-                async deleteComment(id) {
-                    if (!confirm('Hapus komentar ini?')) return;
-                    try {
-                        const res = await fetch(`/comments/${id}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                                'Accept': 'application/json'
-                            }
-                        });
-                        if (res.ok) {
-                            this.comments = this.comments.filter(c => c.id !== id);
-                            commentsCount = Math.max(0, commentsCount - 1);
-                        }
-                    } catch (e) {}
-                }
-            }"
-            x-init="$watch('commentsOpen', val => { if (val) loadComments(true); })"
-            @load-comments-{{ $reading->id }}.window="loadComments(true)"
-            @incoming-comment-{{ $reading->id }}.window="
-                const incoming = $event.detail;
-                if (!comments.some(c => c.id === incoming.id)) {
-                    incoming.is_new = true;
-                    comments.unshift(incoming);
-                    if ($refs.commentsList) {
-                        $refs.commentsList.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                    setTimeout(() => { incoming.is_new = false; }, 4000);
-                }
-            "
+            x-data="commentDrawer({{ $reading->id }})"
             class="flex-1 flex flex-col gap-3 overflow-hidden min-h-0"
         >
             <!-- Comment Input Form -->
