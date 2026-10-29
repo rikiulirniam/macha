@@ -117,9 +117,20 @@ class ReadingController extends Controller
                 $liked = true;
             }
 
+            $unlockedBadge = null;
+            if ($liked) {
+                $unlockedBadge = $this->gamificationService->checkLikeGivenBadges($user);
+                $this->gamificationService->checkLikeReceivedBadges($reading->user);
+            }
+
             return response()->json([
                 'liked' => $liked,
                 'likes_count' => max(0, $reading->fresh()->likes_count),
+                'badge_unlocked' => $unlockedBadge ? [
+                    'name' => $unlockedBadge->name,
+                    'description' => $unlockedBadge->description,
+                    'icon' => $unlockedBadge->icon,
+                ] : null,
             ]);
         });
     }
@@ -200,7 +211,8 @@ class ReadingController extends Controller
             }
         }
 
-        $comment = DB::transaction(function () use ($user, $reading, $validated) {
+        $unlockedBadge = null;
+        $comment = DB::transaction(function () use ($user, $reading, $validated, &$unlockedBadge) {
             $c = Comment::create([
                 'user_id' => $user->id,
                 'reading_id' => $reading->id,
@@ -209,8 +221,8 @@ class ReadingController extends Controller
 
             $reading->increment('comments_count');
 
-            // Award badge 'first_comment' if eligible
-            $this->gamificationService->checkAndAwardBadge($user, 'first_comment');
+            // Award progressive comment badges if eligible
+            $unlockedBadge = $this->gamificationService->checkCommentBadges($user);
 
             return $c;
         });
@@ -228,6 +240,11 @@ class ReadingController extends Controller
                 'can_delete' => true,
             ],
             'message' => 'Komentar berhasil dikirim!',
+            'badge_unlocked' => $unlockedBadge ? [
+                'name' => $unlockedBadge->name,
+                'description' => $unlockedBadge->description,
+                'icon' => $unlockedBadge->icon,
+            ] : null,
         ], 201);
     }
 
@@ -356,9 +373,16 @@ class ReadingController extends Controller
                 ]);
             }
 
-            // Award 'first_publish' badge if published
+            // Award creator badges if published
             if ($reading->status === 'published') {
-                $this->gamificationService->checkAndAwardBadge($user, 'first_publish');
+                $unlockedBadge = $this->gamificationService->checkCreatorBadges($user);
+                if ($unlockedBadge) {
+                    session()->flash('achievement', [
+                        'name' => $unlockedBadge->name,
+                        'description' => $unlockedBadge->description,
+                        'icon' => $unlockedBadge->icon,
+                    ]);
+                }
             }
 
             return $reading;
@@ -421,7 +445,9 @@ class ReadingController extends Controller
 
         $validated = $request->validated();
 
-        DB::transaction(function () use ($reading, $validated, $request) {
+        $user = $request->user();
+
+        DB::transaction(function () use ($reading, $validated, $request, $user) {
             $totalWords = 0;
             $mediaSlides = 0;
             foreach ($validated['slides'] as $s) {
@@ -488,6 +514,18 @@ class ReadingController extends Controller
                 );
             } else {
                 $reading->quiz()?->delete();
+            }
+
+            // Award creator badges if published
+            if ($reading->status === 'published') {
+                $unlockedBadge = $this->gamificationService->checkCreatorBadges($user);
+                if ($unlockedBadge) {
+                    session()->flash('achievement', [
+                        'name' => $unlockedBadge->name,
+                        'description' => $unlockedBadge->description,
+                        'icon' => $unlockedBadge->icon,
+                    ]);
+                }
             }
         });
 

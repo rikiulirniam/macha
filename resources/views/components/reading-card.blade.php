@@ -88,6 +88,15 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                 const data = await res.json();
                 this.likesCount = data.likes_count;
                 this.liked = data.liked;
+                if (data.badge_unlocked) {
+                    window.dispatchEvent(new CustomEvent('achievement', {
+                        detail: {
+                            name: data.badge_unlocked.name,
+                            description: data.badge_unlocked.description,
+                            icon: data.badge_unlocked.icon || 'heart'
+                        }
+                    }));
+                }
             } catch (e) {
                 // rollback on failure
                 this.liked = !this.liked;
@@ -676,6 +685,15 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                             this.comments.unshift(data.comment);
                             this.newComment = '';
                             commentsCount++;
+                            if (data.badge_unlocked) {
+                                window.dispatchEvent(new CustomEvent('achievement', {
+                                    detail: {
+                                        name: data.badge_unlocked.name,
+                                        description: data.badge_unlocked.description,
+                                        icon: data.badge_unlocked.icon || 'message-circle'
+                                    }
+                                }));
+                            }
                         } else {
                             this.errorMessage = data.message || 'Gagal mengirim komentar.';
                         }
