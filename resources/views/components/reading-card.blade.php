@@ -38,6 +38,149 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
         floatingExpText: '+10 EXP',
         hasQuiz: {{ $reading->quiz ? 'true' : 'false' }},
 
+        // [DEMO/VIDEO-ANIMATION] Realtime comments & new comment popup state
+        isCardInView: false,
+        showCommentPopup: false,
+        newCommentPopup: null,
+        commentPopupTimeout: null,
+        commentPollInterval: null,
+        lastSeenCommentId: null,
+        demoInterval: null,
+        demoAutoPlay: false,
+        demoIndex: 0,
+        demoCommentsList: [
+            {
+                name: 'Ahmad Fauzi',
+                username: 'ahmadfauzi',
+                initials: 'AF',
+                body: 'Poin nomor 2 ngena banget! Perubahan kecil tapi konsisten emang luar biasa efeknya 🔥'
+            },
+            {
+                name: 'Clarissa Putri',
+                username: 'clarissaputri',
+                initials: 'CP',
+                body: 'Suka banget sama micro-reading begini, ringkas tapi daging semua materinya! 👏'
+            },
+            {
+                name: 'Budi Pratama',
+                username: 'budipratama',
+                initials: 'BP',
+                body: 'Konsep Kaizen 1% bener-bener game changer buat produktivitas harian 🚀'
+            },
+            {
+                name: 'Nadia Safitri',
+                username: 'nadiasafitri',
+                initials: 'NS',
+                body: 'Animasi dan alur bacanya mulus banget! Ditunggu bahasan topik selanjutnya min ✨'
+            },
+            {
+                name: 'Rian Hidayat',
+                username: 'rianhidayat',
+                initials: 'RH',
+                body: 'Langsung tersadar setelah baca slide ke-4. Mulai langkah kecil dari sekarang!'
+            }
+        ],
+
+        playCommentChime() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                if (ctx.state === 'suspended') ctx.resume();
+                const now = ctx.currentTime;
+                // Tone 1
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(659.25, now);
+                gain1.gain.setValueAtTime(0.001, now);
+                gain1.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.12);
+
+                // Tone 2
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(987.77, now + 0.08);
+                gain2.gain.setValueAtTime(0.001, now + 0.08);
+                gain2.gain.exponentialRampToValueAtTime(0.3, now + 0.10);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.08);
+                osc2.stop(now + 0.28);
+            } catch (e) {}
+        },
+
+        triggerIncomingComment(commentData) {
+            this.commentsCount++;
+            this.newCommentPopup = commentData;
+            this.showCommentPopup = true;
+            this.playCommentChime();
+
+            this.$dispatch('incoming-comment-{{ $reading->id }}', commentData);
+
+            clearTimeout(this.commentPopupTimeout);
+            this.commentPopupTimeout = setTimeout(() => {
+                this.showCommentPopup = false;
+            }, 4500);
+        },
+
+        simulateNextComment() {
+            const template = this.demoCommentsList[this.demoIndex % this.demoCommentsList.length];
+            this.demoIndex++;
+            const comment = {
+                id: 'demo_' + Date.now(),
+                body: template.body,
+                user: {
+                    name: template.name,
+                    username: template.username,
+                    initials: template.initials
+                },
+                created_at_human: 'Baru saja',
+                can_delete: false,
+                is_new: true
+            };
+            this.triggerIncomingComment(comment);
+        },
+
+        toggleDemoAutoPlay() {
+            this.demoAutoPlay = !this.demoAutoPlay;
+            if (this.demoAutoPlay) {
+                setTimeout(() => this.simulateNextComment(), 800);
+                this.demoInterval = setInterval(() => {
+                    this.simulateNextComment();
+                }, 6500);
+            } else {
+                clearInterval(this.demoInterval);
+                this.demoInterval = null;
+            }
+        },
+
+        async pollComments() {
+            try {
+                const res = await fetch('/readings/{{ $reading->id }}/comments?per_page=5', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.comments && data.comments.length > 0) {
+                    const latest = data.comments[0];
+                    if (this.lastSeenCommentId === null) {
+                        this.lastSeenCommentId = latest.id;
+                    } else if (latest.id > this.lastSeenCommentId) {
+                        this.lastSeenCommentId = latest.id;
+                        latest.is_new = true;
+                        this.triggerIncomingComment(latest);
+                    }
+                }
+            } catch (e) {}
+        },
+
         init() {
             const container = this.$refs.slidesContainer;
             container.addEventListener('scroll', () => {
@@ -48,6 +191,28 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                     this.recordProgress(index + 1);
                 }
             });
+
+            // Track card viewport visibility
+            if ('IntersectionObserver' in window) {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        this.isCardInView = entry.isIntersecting;
+                        if (!entry.isIntersecting && this.demoAutoPlay) {
+                            this.toggleDemoAutoPlay();
+                        }
+                    });
+                }, { threshold: 0.5 });
+                observer.observe(this.$el);
+            } else {
+                this.isCardInView = true;
+            }
+
+            // Real-time server polling (every 4s)
+            this.commentPollInterval = setInterval(() => {
+                if (this.isCardInView) {
+                    this.pollComments();
+                }
+            }, 4000);
         },
         goToSlide(index) {
             const container = this.$refs.slidesContainer;
@@ -254,9 +419,99 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
             }
         }
     }"
+    @keydown.window="if (isCardInView && ($event.key === 'c' || $event.key === 'C') && !['INPUT', 'TEXTAREA'].includes($event.target.tagName)) { simulateNextComment(); }"
     class="feed-snap-card relative w-full h-[100dvh] max-h-[100dvh] bg-paper overflow-hidden flex flex-col justify-between border-b-2 border-paper-dark"
     data-reading-id="{{ $reading->id }}"
 >
+    <!-- [DEMO/VIDEO-ANIMATION] Demo controls for video recording (bisa dihapus setelah video selesai) -->
+    <div
+        x-show="isCardInView"
+        class="absolute top-16 right-4 sm:top-5 sm:right-5 z-40 flex items-center gap-1.5 opacity-85 hover:opacity-100 transition-opacity select-none"
+    >
+        <button
+            type="button"
+            @click.stop="simulateNextComment()"
+            class="px-2.5 py-1 rounded-full bg-paper/95 text-deep-teal font-extrabold text-[10px] border border-paper-dark border-b-2 hover:bg-kilat hover:border-kilat-dark transition-all flex items-center gap-1 shadow-md active:scale-95 cursor-pointer"
+            title="Tekan tombol ini atau huruf 'C' pada keyboard untuk trigger komentar realtime"
+        >
+            <span class="w-1.5 h-1.5 rounded-full bg-kilat-dark animate-ping"></span>
+            <span>⚡ +Komentar</span>
+        </button>
+        <button
+            type="button"
+            @click.stop="toggleDemoAutoPlay()"
+            :class="demoAutoPlay ? 'bg-amber text-deep-teal border-amber-dark ring-2 ring-amber/40 font-black' : 'bg-paper/95 text-deep-teal/70 border-paper-dark font-bold'"
+            class="px-2.5 py-1 rounded-full text-[10px] border border-b-2 shadow-md transition-all active:scale-95 cursor-pointer"
+            title="Otomatis munculkan komentar tiap 6 detik untuk video animasi"
+        >
+            <span x-text="demoAutoPlay ? '⏸ Auto (On)' : '▶ Auto'"></span>
+        </button>
+    </div>
+
+    <!-- [DEMO/VIDEO-ANIMATION] Animated Realtime New Comment Popup (bisa dihapus setelah video selesai) -->
+    <div
+        x-show="showCommentPopup && newCommentPopup"
+        x-cloak
+        x-transition:enter="transition cubic-bezier(0.34, 1.56, 0.64, 1) duration-400 transform"
+        x-transition:enter-start="opacity-0 -translate-y-8 scale-90"
+        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+        x-transition:leave="transition ease-in duration-200 transform"
+        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+        x-transition:leave-end="opacity-0 -translate-y-6 scale-95"
+        @click="openComments(); showCommentPopup = false;"
+        class="fixed top-4 sm:top-5 left-1/2 -translate-x-1/2 z-[70] w-[92%] max-w-sm pointer-events-auto cursor-pointer select-none"
+        role="alert"
+    >
+        <div class="card-paper bg-paper border-2 border-deep-teal border-b-4 rounded-3xl p-3 sm:p-3.5 shadow-2xl flex items-start gap-3 relative overflow-hidden group hover:brightness-105 transition-all">
+            <!-- Accent glow stripe on left edge -->
+            <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-kilat to-amber"></div>
+
+            <!-- Author Initials Avatar -->
+            <div class="w-10 h-10 rounded-2xl bg-kilat text-deep-teal font-black text-xs flex items-center justify-center border-2 border-deep-teal flex-shrink-0 shadow-xs mt-0.5">
+                <span x-text="newCommentPopup ? newCommentPopup.user.initials : 'M'"></span>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-1.5">
+                    <div class="flex items-center gap-1.5">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-kilat opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-kilat-dark"></span>
+                        </span>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-kilat-dark">
+                            Komentar Baru
+                        </span>
+                    </div>
+                    <span class="text-[10px] font-bold text-deep-teal/40">Baru saja</span>
+                </div>
+
+                <div class="mt-0.5">
+                    <span class="font-black text-xs text-deep-teal leading-tight truncate block" x-text="newCommentPopup ? newCommentPopup.user.name : ''"></span>
+                </div>
+
+                <p class="text-xs text-deep-teal font-medium leading-snug line-clamp-2 mt-0.5" x-text="newCommentPopup ? newCommentPopup.body : ''"></p>
+
+                <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-paper-dark/60 text-[10px] font-extrabold text-deep-teal/70">
+                    <span class="flex items-center gap-1 text-kilat-dark">
+                        <x-lucide-message-circle class="w-3 h-3 text-kilat-dark" />
+                        <span x-text="commentsOpen ? 'Tercatat di daftar komentar' : 'Ketuk untuk membaca & balas'"></span>
+                    </span>
+                    <span class="text-deep-teal/40 group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+                </div>
+            </div>
+
+            <!-- Close icon button -->
+            <button
+                type="button"
+                @click.stop="showCommentPopup = false"
+                class="w-6 h-6 rounded-lg flex items-center justify-center text-deep-teal/40 hover:text-deep-teal hover:bg-paper-dark/60 transition-colors flex-shrink-0 -mr-1 -mt-1 cursor-pointer"
+                aria-label="Tutup notifikasi"
+            >
+                <x-lucide-x class="w-3.5 h-3.5" />
+            </button>
+        </div>
+    </div>
     <!-- Floating EXP animation badge -->
     <div
         x-show="floatingExp"
@@ -361,14 +616,18 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
             <button
                 type="button"
                 @click="openComments()"
-                class="flex flex-col items-center gap-1 focus:outline-none group select-none cursor-pointer"
+                class="flex flex-col items-center gap-1 focus:outline-none group select-none cursor-pointer relative"
                 aria-label="Lihat komentar"
             >
-                <div class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center bg-paper/90 text-deep-teal border-2 border-paper-dark border-b-4 hover:bg-white transition-transform active:scale-90">
+                <div
+                    :class="showCommentPopup ? 'ring-4 ring-kilat scale-110' : ''"
+                    class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center bg-paper/90 text-deep-teal border-2 border-paper-dark border-b-4 hover:bg-white transition-all active:scale-90"
+                >
                     <x-lucide-message-circle class="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
                 <span
-                    class="text-[10px] sm:text-[11px] font-extrabold px-1.5 py-0.5 rounded-lg bg-deep-teal/70 text-paper backdrop-blur-none"
+                    :class="showCommentPopup ? 'scale-125 text-kilat font-black' : 'text-paper'"
+                    class="text-[10px] sm:text-[11px] font-extrabold px-1.5 py-0.5 rounded-lg bg-deep-teal/70 backdrop-blur-none transition-all duration-200"
                     x-text="commentsCount"
                 >
                     {{ $reading->comments_count }}
@@ -604,9 +863,32 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
     <!-- Comments Sheet Component -->
     <x-sheet name="commentsOpen">
         <x-slot:header>
-            <div class="flex items-center gap-2">
-                <span>Komentar</span>
-                <span class="text-xs sm:text-sm font-extrabold px-2.5 py-0.5 rounded-full bg-paper-dark text-deep-teal" x-text="commentsCount">{{ $reading->comments_count }}</span>
+            <div class="flex items-center justify-between w-full pr-6">
+                <div class="flex items-center gap-2">
+                    <span>Komentar</span>
+                    <span class="text-xs sm:text-sm font-extrabold px-2.5 py-0.5 rounded-full bg-paper-dark text-deep-teal" x-text="commentsCount">{{ $reading->comments_count }}</span>
+                </div>
+
+                <!-- [DEMO/VIDEO-ANIMATION] Controls inside sheet header -->
+                <div class="flex items-center gap-1.5">
+                    <button
+                        type="button"
+                        @click.stop="simulateNextComment()"
+                        class="px-2.5 py-1 rounded-xl bg-kilat text-deep-teal font-black text-[11px] border border-kilat-dark hover:brightness-105 active:scale-95 transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+                        title="Simulasi komentar baru realtime"
+                    >
+                        <span>⚡ +Komentar</span>
+                    </button>
+                    <button
+                        type="button"
+                        @click.stop="toggleDemoAutoPlay()"
+                        :class="demoAutoPlay ? 'bg-amber text-deep-teal border-amber-dark ring-2 ring-amber/30 font-black' : 'bg-paper-dark text-deep-teal/60 border-paper-dark font-bold'"
+                        class="px-2.5 py-1 rounded-xl text-[11px] border hover:brightness-105 active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Otomatis munculkan komentar tiap 6 detik"
+                    >
+                        <span x-text="demoAutoPlay ? '⏸ Auto (On)' : '▶ Auto'"></span>
+                    </button>
+                </div>
             </div>
         </x-slot:header>
 
@@ -722,6 +1004,17 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
             }"
             x-init="$watch('commentsOpen', val => { if (val) loadComments(true); })"
             @load-comments-{{ $reading->id }}.window="loadComments(true)"
+            @incoming-comment-{{ $reading->id }}.window="
+                const incoming = $event.detail;
+                if (!comments.some(c => c.id === incoming.id)) {
+                    incoming.is_new = true;
+                    comments.unshift(incoming);
+                    if ($refs.commentsList) {
+                        $refs.commentsList.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                    setTimeout(() => { incoming.is_new = false; }, 4000);
+                }
+            "
             class="flex-1 flex flex-col gap-3 overflow-hidden min-h-0"
         >
             <!-- Comment Input Form -->
@@ -753,7 +1046,10 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
             @endauth
 
             <!-- Comments List -->
-            <div class="flex-1 flex flex-col gap-3 divide-y divide-paper-dark/60 overflow-y-auto min-h-0 pr-1 overscroll-contain">
+            <div
+                x-ref="commentsList"
+                class="flex-1 flex flex-col gap-3 divide-y divide-paper-dark/60 overflow-y-auto min-h-0 pr-1 overscroll-contain"
+            >
                 <!-- Loading State -->
                 <template x-if="loading">
                     <div class="py-8 flex flex-col items-center justify-center gap-2 text-deep-teal/60">
@@ -774,9 +1070,19 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
 
                 <!-- Comments Items -->
                 <template x-for="c in comments" :key="c.id">
-                    <div class="pt-3 first:pt-0 flex flex-col gap-1">
+                    <div
+                        :class="c.is_new ? 'bg-kilat/15 border-2 border-kilat-dark p-3 rounded-2xl animate-pulse transition-all duration-700' : 'pt-3 first:pt-0'"
+                        class="flex flex-col gap-1 transition-all duration-300"
+                    >
                         <div class="flex items-center justify-between text-xs">
-                            <span class="font-extrabold text-deep-teal" x-text="c.user.name"></span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-extrabold text-deep-teal" x-text="c.user.name"></span>
+                                <template x-if="c.is_new">
+                                    <span class="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-kilat text-deep-teal border border-kilat-dark shadow-xs">
+                                        ✨ Baru
+                                    </span>
+                                </template>
+                            </div>
                             <div class="flex items-center gap-2">
                                 <span class="text-[10px] text-deep-teal/60 font-semibold" x-text="c.created_at_human"></span>
                                 <template x-if="c.can_delete">
