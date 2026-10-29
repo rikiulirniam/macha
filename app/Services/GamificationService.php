@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\Badge;
+use App\Models\Comment;
 use App\Models\ExpLog;
+use App\Models\Like;
 use App\Models\Reading;
 use App\Models\ReadingProgress;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class GamificationService
@@ -144,6 +147,11 @@ class GamificationService
 
             // Check badges
             $unlockedBadge = $this->checkReadingBadges($user);
+            if ($dailyTargetAchieved) {
+                $unlockedBadge = $this->checkDailyTargetBadges($user) ?? $unlockedBadge;
+            }
+            $unlockedBadge = $this->checkStreakBadges($user) ?? $unlockedBadge;
+            $unlockedBadge = $this->checkLevelBadges($user) ?? $unlockedBadge;
 
             $userFresh = $user->fresh();
 
@@ -223,8 +231,9 @@ class GamificationService
 
             $unlockedBadge = null;
             if ($isCorrect) {
-                $unlockedBadge = $this->checkAndAwardBadge($user, 'first_quiz_correct');
+                $unlockedBadge = $this->checkQuizBadges($user);
             }
+            $unlockedBadge = $this->checkLevelBadges($user) ?? $unlockedBadge;
 
             $userFresh = $user->fresh();
 
@@ -283,39 +292,146 @@ class GamificationService
         $user->save();
 
         // Check streak badges
-        if ($user->current_streak >= 3) {
-            $this->checkAndAwardBadge($user, 'streak_3');
-        }
-        if ($user->current_streak >= 7) {
-            $this->checkAndAwardBadge($user, 'streak_7');
-        }
+        $this->checkStreakBadges($user);
     }
 
     /**
-     * Check reading count badges.
+     * Check and award progressive badges for a category based on the user's current progress count.
+     * Returns the highest newly unlocked badge if any.
+     */
+    public function checkProgressiveBadges(User $user, string $category, int $currentCount): ?Badge
+    {
+        $badges = Badge::where('category', $category)
+            ->orderBy('tier', 'asc')
+            ->get();
+
+        if ($badges->isEmpty()) {
+            return null;
+        }
+
+        $userBadgeIds = $user->badges()->pluck('badges.id')->all();
+        $newlyUnlocked = null;
+
+        foreach ($badges as $badge) {
+            if ($currentCount >= $badge->required_count && ! in_array($badge->id, $userBadgeIds, true)) {
+                $user->badges()->attach($badge->id, [
+                    'earned_at' => Carbon::now('Asia/Jakarta'),
+                ]);
+                $userBadgeIds[] = $badge->id;
+                $newlyUnlocked = $badge;
+            }
+        }
+
+        return $newlyUnlocked;
+    }
+
+    /**
+     * Check progressive reading badges.
      */
     public function checkReadingBadges(User $user): ?Badge
     {
-        $completedCount = ReadingProgress::where('user_id', $user->id)
+        $count = ReadingProgress::where('user_id', $user->id)
             ->whereNotNull('completed_at')
             ->count();
 
-        $unlocked = null;
-        if ($completedCount >= 1) {
-            $unlocked = $this->checkAndAwardBadge($user, 'first_read') ?? $unlocked;
-        }
-        if ($completedCount >= 10) {
-            $unlocked = $this->checkAndAwardBadge($user, 'readings_10') ?? $unlocked;
-        }
-        if ($completedCount >= 50) {
-            $unlocked = $this->checkAndAwardBadge($user, 'readings_50') ?? $unlocked;
-        }
-
-        return $unlocked;
+        return $this->checkProgressiveBadges($user, 'reading', $count);
     }
 
     /**
-     * Check and award a specific badge if not already earned.
+     * Check progressive streak badges.
+     */
+    public function checkStreakBadges(User $user): ?Badge
+    {
+        $count = max((int) $user->current_streak, (int) $user->longest_streak);
+
+        return $this->checkProgressiveBadges($user, 'streak', $count);
+    }
+
+    /**
+     * Check progressive quiz badges.
+     */
+    public function checkQuizBadges(User $user): ?Badge
+    {
+        $count = ReadingProgress::where('user_id', $user->id)
+            ->where('quiz_correct', true)
+            ->count();
+
+        return $this->checkProgressiveBadges($user, 'quiz', $count);
+    }
+
+    /**
+     * Check progressive comment badges.
+     */
+    public function checkCommentBadges(User $user): ?Badge
+    {
+        $count = Comment::where('user_id', $user->id)->count();
+
+        return $this->checkProgressiveBadges($user, 'comment', $count);
+    }
+
+    /**
+     * Check progressive creator / publication badges.
+     */
+    public function checkCreatorBadges(User $user): ?Badge
+    {
+        $count = Reading::where('user_id', $user->id)
+            ->where('status', 'published')
+            ->count();
+
+        return $this->checkProgressiveBadges($user, 'creator', $count);
+    }
+
+    /**
+     * Check progressive likes given badges.
+     */
+    public function checkLikeGivenBadges(User $user): ?Badge
+    {
+        $count = Like::where('user_id', $user->id)->count();
+
+        return $this->checkProgressiveBadges($user, 'like_given', $count);
+    }
+
+    /**
+     * Check progressive likes received badges.
+     */
+    public function checkLikeReceivedBadges(User $user): ?Badge
+    {
+        $count = Like::whereIn('reading_id', $user->readings()->select('id'))->count();
+
+        return $this->checkProgressiveBadges($user, 'like_received', $count);
+    }
+
+    /**
+     * Check progressive level badges.
+     */
+    public function checkLevelBadges(User $user): ?Badge
+    {
+        $level = $this->calculateLevel((int) $user->total_exp);
+
+        return $this->checkProgressiveBadges($user, 'level', $level);
+    }
+
+    /**
+     * Check progressive daily target badges.
+     */
+    public function checkDailyTargetBadges(User $user): ?Badge
+    {
+        $dailyCount = ExpLog::where('user_id', $user->id)
+            ->where('source', 'daily_target')
+            ->count();
+
+        $distinctDays = (int) (ReadingProgress::where('user_id', $user->id)
+            ->whereNotNull('completed_at')
+            ->selectRaw('COUNT(DISTINCT DATE(completed_at)) as cnt')
+            ->value('cnt') ?? 0);
+
+        $count = max($dailyCount, $distinctDays);
+
+        return $this->checkProgressiveBadges($user, 'daily_target', $count);
+    }
+
+    /**
+     * Check and award a specific badge if not already earned (backward compatibility).
      */
     public function checkAndAwardBadge(User $user, string $badgeKey): ?Badge
     {
@@ -334,5 +450,126 @@ class GamificationService
         ]);
 
         return $badge;
+    }
+
+    /**
+     * Get progressive achievement categories with user's current progress,
+     * active/next target badge, requirements, and completion status.
+     *
+     * @return array<string, array{
+     *     key: string,
+     *     title: string,
+     *     unit: string,
+     *     icon: string,
+     *     current_count: int,
+     *     active_badge: ?Badge,
+     *     active_tier: int,
+     *     required_count: int,
+     *     is_maxed: bool,
+     *     progress_percent: int,
+     *     badges: Collection<int, Badge>
+     * }>
+     */
+    public function getProgressiveCategories(User $user): array
+    {
+        $readingProgressStats = ReadingProgress::where('user_id', $user->id)
+            ->selectRaw('COUNT(completed_at) as completed_count, COUNT(CASE WHEN quiz_correct = 1 THEN 1 END) as quiz_count, COUNT(DISTINCT DATE(completed_at)) as distinct_days')
+            ->first();
+
+        $completedReadings = (int) ($readingProgressStats->completed_count ?? 0);
+        $correctQuizzes = (int) ($readingProgressStats->quiz_count ?? 0);
+        $distinctDays = (int) ($readingProgressStats->distinct_days ?? 0);
+        $streak = max((int) $user->current_streak, (int) $user->longest_streak);
+        $commentsCount = Comment::where('user_id', $user->id)->count();
+        $creationsCount = Reading::where('user_id', $user->id)->where('status', 'published')->count();
+        $likesGiven = Like::where('user_id', $user->id)->count();
+        $likesReceived = Like::whereIn('reading_id', $user->readings()->select('id'))->count();
+        $level = $this->calculateLevel((int) $user->total_exp);
+        $dailyTargetCount = max(
+            ExpLog::where('user_id', $user->id)->where('source', 'daily_target')->count(),
+            $distinctDays
+        );
+
+        $counts = [
+            'reading' => $completedReadings,
+            'streak' => $streak,
+            'quiz' => $correctQuizzes,
+            'comment' => $commentsCount,
+            'creator' => $creationsCount,
+            'like_given' => $likesGiven,
+            'like_received' => $likesReceived,
+            'level' => $level,
+            'daily_target' => $dailyTargetCount,
+        ];
+
+        // Synchronize and auto-award qualifying badges
+        foreach ($counts as $catKey => $count) {
+            $this->checkProgressiveBadges($user, $catKey, $count);
+        }
+
+        // Fetch all badges grouped by category
+        $allBadges = Badge::whereNotNull('category')
+            ->orderBy('tier', 'asc')
+            ->get()
+            ->groupBy('category');
+
+        $userBadges = $user->badges()->get()->keyBy('id');
+
+        $categoriesMeta = [
+            'reading' => ['title' => 'Membaca', 'unit' => 'bacaan', 'icon' => 'book-open'],
+            'streak' => ['title' => 'Streak Harian', 'unit' => 'hari', 'icon' => 'flame'],
+            'quiz' => ['title' => 'Kuis Pengetahuan', 'unit' => 'kuis benar', 'icon' => 'sparkles'],
+            'comment' => ['title' => 'Diskusi & Komentar', 'unit' => 'komentar', 'icon' => 'message-circle'],
+            'creator' => ['title' => 'Kreator Bacaan', 'unit' => 'karya terbit', 'icon' => 'pen-tool'],
+            'like_given' => ['title' => 'Apresiasi Suka', 'unit' => 'suka diberikan', 'icon' => 'heart'],
+            'like_received' => ['title' => 'Popularitas Karya', 'unit' => 'suka diterima', 'icon' => 'star'],
+            'level' => ['title' => 'Tingkat Level', 'unit' => 'level', 'icon' => 'trophy'],
+            'daily_target' => ['title' => 'Target Harian', 'unit' => 'hari tercapai', 'icon' => 'check-circle-2'],
+        ];
+
+        $result = [];
+
+        foreach ($categoriesMeta as $catKey => $meta) {
+            $catBadges = $allBadges->get($catKey, collect())->map(function (Badge $b) use ($userBadges) {
+                $earned = isset($userBadges[$b->id]);
+                $b->is_earned = $earned;
+                $b->earned_at = $earned ? $userBadges[$b->id]->pivot->earned_at : null;
+
+                return $b;
+            });
+
+            $currentCount = $counts[$catKey] ?? 0;
+            $unearnedBadge = $catBadges->firstWhere('is_earned', false);
+
+            if (! $unearnedBadge) {
+                $activeBadge = $catBadges->last();
+                $isMaxed = true;
+                $activeTier = $activeBadge?->tier ?? 1;
+                $requiredCount = $activeBadge?->required_count ?? $currentCount;
+                $progressPercent = 100;
+            } else {
+                $activeBadge = $unearnedBadge;
+                $isMaxed = false;
+                $activeTier = $activeBadge->tier;
+                $requiredCount = max(1, (int) $activeBadge->required_count);
+                $progressPercent = min(100, (int) round(($currentCount / $requiredCount) * 100));
+            }
+
+            $result[$catKey] = [
+                'key' => $catKey,
+                'title' => $meta['title'],
+                'unit' => $meta['unit'],
+                'icon' => $meta['icon'],
+                'current_count' => $currentCount,
+                'active_badge' => $activeBadge,
+                'active_tier' => $activeTier,
+                'required_count' => $requiredCount,
+                'is_maxed' => $isMaxed,
+                'progress_percent' => $progressPercent,
+                'badges' => $catBadges,
+            ];
+        }
+
+        return $result;
     }
 }
