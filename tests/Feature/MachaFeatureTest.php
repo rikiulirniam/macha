@@ -191,6 +191,10 @@ class MachaFeatureTest extends TestCase
 
         // User B must NOT appear in this week's leaderboard
         $response->assertDontSee('User B');
+
+        // Leaderboard countdown must be integer days/hours, not float decimals
+        $response->assertSee('Reset dalam');
+        $this->assertDoesNotMatchRegularExpression('/Reset dalam \d+\.\d+ hari/', $response->getContent());
     }
 
     public function test_banned_words_in_comments_are_rejected(): void

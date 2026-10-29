@@ -74,8 +74,19 @@ class LeaderboardController extends Controller
 
         // Countdown to next Monday 00:00 WIB
         $nextMonday = $now->copy()->next(Carbon::MONDAY)->startOfDay();
-        $daysUntilReset = $now->diffInDays($nextMonday);
-        $hoursUntilReset = $now->diffInHours($nextMonday) % 24;
+        $totalMinutes = (int) floor($now->diffInMinutes($nextMonday));
+        $totalHours = intdiv($totalMinutes, 60);
+        $daysUntilReset = intdiv($totalHours, 24);
+        $hoursUntilReset = $totalHours % 24;
+
+        if ($daysUntilReset > 0) {
+            $countdown = "{$daysUntilReset} hari {$hoursUntilReset} jam";
+        } elseif ($hoursUntilReset > 0) {
+            $countdown = "{$hoursUntilReset} jam";
+        } else {
+            $minutes = max(1, $totalMinutes % 60);
+            $countdown = "{$minutes} menit";
+        }
 
         return view('leaderboard', [
             'topUsers' => $topUsers,
@@ -84,7 +95,7 @@ class LeaderboardController extends Controller
             'currentUser' => $currentUser,
             'currentUserRank' => $currentUserRank,
             'currentUserWeeklyExp' => $currentUserWeeklyExp,
-            'countdown' => "{$daysUntilReset} hari {$hoursUntilReset} jam",
+            'countdown' => $countdown,
         ]);
     }
 }
