@@ -85,3 +85,4 @@
     @default
         <x-lucide-award :class="$class" />
 @endswitch
+

@@ -13,6 +13,28 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+// PWA Manifest, Service Worker & Offline fallback
+Route::get('/manifest.json', function () {
+    return response(file_get_contents(public_path('manifest.json')), 200, [
+        'Content-Type' => 'application/manifest+json; charset=utf-8',
+        'Cache-Control' => 'public, max-age=3600',
+    ]);
+})->name('pwa.manifest');
+
+Route::get('/sw.js', function () {
+    return response(file_get_contents(public_path('sw.js')), 200, [
+        'Content-Type' => 'application/javascript; charset=utf-8',
+        'Cache-Control' => 'no-cache, no-store, must-revalidate',
+        'Service-Worker-Allowed' => '/',
+    ]);
+})->name('pwa.sw');
+
+Route::get('/offline.html', function () {
+    return response(file_get_contents(public_path('offline.html')), 200, [
+        'Content-Type' => 'text/html; charset=utf-8',
+    ]);
+})->name('pwa.offline');
+
 // Public feed & leaderboard
 Route::get('/', [FeedController::class, 'index'])->name('home');
 Route::get('/peringkat', [LeaderboardController::class, 'index'])->name('leaderboard');

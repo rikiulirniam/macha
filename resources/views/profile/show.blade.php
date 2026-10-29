@@ -324,5 +324,51 @@
                 </div>
             @endif
         </div>
+
+        @if ($isOwner)
+            <!-- PWA Application Card -->
+            <div
+                x-data="{
+                    isStandalone: window.pwaManager ? window.pwaManager.isStandalone : false,
+                    triggerInstall() {
+                        window.dispatchEvent(new CustomEvent('open-pwa-install'));
+                    }
+                }"
+                class="card-paper p-5 border-2 border-paper-dark rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+            >
+                <div class="flex items-center gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-deep-teal p-1.5 flex items-center justify-center flex-shrink-0 border-2 border-deep-teal">
+                        <img src="{{ asset('icons/icon-192x192.png') }}" alt="Macha Logo" class="w-full h-full object-contain">
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="font-extrabold text-sm text-deep-teal">Aplikasi Macha (PWA)</span>
+                        <template x-if="isStandalone">
+                            <span class="text-xs text-kilat-dark font-extrabold flex items-center gap-1 mt-0.5">
+                                <x-lucide-check-circle-2 class="w-3.5 h-3.5" />
+                                Terpasang di perangkat ini (Mode PWA)
+                            </span>
+                        </template>
+                        <template x-if="!isStandalone">
+                            <span class="text-xs text-deep-teal/70 font-semibold mt-0.5">
+                                Pasang di layar utama HP agar cepat dibuka tanpa ketik link di browser.
+                            </span>
+                        </template>
+                    </div>
+                </div>
+
+                <template x-if="!isStandalone">
+                    <x-button
+                        type="button"
+                        variant="kilat"
+                        size="sm"
+                        @click="triggerInstall()"
+                        class="sm:flex-shrink-0 justify-center"
+                    >
+                        <x-lucide-smartphone class="w-4 h-4 mr-1.5" />
+                        <span>Pasang di Layar Utama</span>
+                    </x-button>
+                </template>
+            </div>
+        @endif
     </div>
 </x-app-layout>

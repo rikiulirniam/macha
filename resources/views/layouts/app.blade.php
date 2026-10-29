@@ -12,8 +12,28 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title>{{ $title ?? config('matcha.app_name', 'Macha') . ' — Micro-reading Sosial' }}</title>
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('icons/icon-32x32.png') }}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('icons/icon-16x16.png') }}">
         <link rel="icon" type="image/png" href="{{ asset('brand/logo.png') }}">
-        <link rel="apple-touch-icon" href="{{ asset('brand/logo.png') }}">
+
+        <!-- PWA Web App Manifest & Mobile Meta -->
+        <link rel="manifest" href="{{ asset('manifest.json') }}">
+        <meta name="theme-color" content="#102A2A">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="application-name" content="{{ config('matcha.app_name', 'Macha') }}">
+
+        <!-- iOS Safari PWA Meta & Icons -->
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="{{ config('matcha.app_name', 'Macha') }}">
+        <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('icons/icon-180x180.png') }}">
+        <link rel="apple-touch-icon" sizes="192x192" href="{{ asset('icons/icon-192x192.png') }}">
+        <link rel="apple-touch-icon" sizes="512x512" href="{{ asset('icons/icon-512x512.png') }}">
+
+        <!-- Windows Tile -->
+        <meta name="msapplication-TileColor" content="#102A2A">
+        <meta name="msapplication-TileImage" content="{{ asset('icons/icon-192x192.png') }}">
 
         @stack('meta')
 
@@ -23,6 +43,7 @@
     </head>
     <body class="font-sans text-deep-teal bg-paper min-h-full flex flex-col md:flex-row antialiased selection:bg-kilat selection:text-deep-teal {{ $isFeed ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : '' }}">
         <x-toast />
+        <x-pwa-install-prompt />
 
         <!-- Desktop Sidebar (md and up) -->
         <aside class="hidden md:flex md:w-64 lg:w-72 md:flex-col md:fixed md:inset-y-0 z-30 bg-paper border-r-2 border-paper-dark p-6 justify-between select-none">
