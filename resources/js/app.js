@@ -88,6 +88,8 @@ Alpine.data('commentDrawer', (readingId) => ({
     submitting: false,
     errorMessage: '',
     loaded: false,
+    commentToDelete: null,
+    deletingComment: false,
 
     init() {
         this.$watch('commentsOpen', (val) => {
@@ -230,8 +232,19 @@ Alpine.data('commentDrawer', (readingId) => ({
         }
     },
 
-    async deleteComment(id) {
-        if (!confirm('Hapus komentar ini?')) return;
+    confirmDelete(id) {
+        this.commentToDelete = id;
+    },
+
+    cancelDelete() {
+        if (this.deletingComment) return;
+        this.commentToDelete = null;
+    },
+
+    async executeDelete() {
+        if (!this.commentToDelete || this.deletingComment) return;
+        const id = this.commentToDelete;
+        this.deletingComment = true;
         try {
             const csrfMeta = document.querySelector('meta[name="csrf-token"]');
             const res = await fetch(`/comments/${id}`, {
@@ -243,9 +256,25 @@ Alpine.data('commentDrawer', (readingId) => ({
             });
             if (res.ok) {
                 this.comments = this.comments.filter((c) => c.id !== id);
+                this.commentToDelete = null;
                 window.dispatchEvent(new CustomEvent(`decrement-comments-count-${readingId}`));
+                window.dispatchEvent(new CustomEvent('toast', {
+                    detail: {
+                        message: 'Komentar berhasil dihapus.',
+                        type: 'info'
+                    }
+                }));
             }
-        } catch (e) {}
+        } catch (e) {
+            window.dispatchEvent(new CustomEvent('toast', {
+                detail: {
+                    message: 'Gagal menghapus komentar.',
+                    type: 'error'
+                }
+            }));
+        } finally {
+            this.deletingComment = false;
+        }
     }
 }));
 

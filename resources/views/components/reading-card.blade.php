@@ -948,11 +948,13 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                                 <template x-if="c.can_delete">
                                     <button
                                         type="button"
-                                        @click="deleteComment(c.id)"
-                                        class="text-deep-teal/40 hover:text-error text-xs font-bold"
+                                        @click="confirmDelete(c.id)"
+                                        class="p-1 rounded-md text-deep-teal/40 hover:text-error hover:bg-error/10 text-xs font-bold transition-colors cursor-pointer"
                                         title="Hapus komentar"
                                     >
-                                        &times;
+                                        <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                        </svg>
                                     </button>
                                 </template>
                             </div>
@@ -980,6 +982,78 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
                         </button>
                     </div>
                 </template>
+            </div>
+
+            <!-- Modern Delete Confirmation Modal / Dialog -->
+            <div
+                x-show="commentToDelete !== null"
+                x-cloak
+                class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+                <!-- Backdrop -->
+                <div
+                    x-show="commentToDelete !== null"
+                    x-transition:enter="transition-opacity ease-out duration-200"
+                    x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100"
+                    x-transition:leave="transition-opacity ease-in duration-150"
+                    x-transition:leave-start="opacity-100"
+                    x-transition:leave-end="opacity-0"
+                    @click="cancelDelete()"
+                    class="fixed inset-0 bg-deep-teal/60 backdrop-blur-xs"
+                ></div>
+
+                <!-- Dialog Card -->
+                <div
+                    x-show="commentToDelete !== null"
+                    x-transition:enter="transition ease-out duration-200 transform"
+                    x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+                    x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                    x-transition:leave="transition ease-in duration-150 transform"
+                    x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+                    x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+                    @click.outside="cancelDelete()"
+                    @keydown.escape.window="cancelDelete()"
+                    class="relative w-full max-w-xs bg-paper border-2 border-paper-dark rounded-2xl shadow-2xl p-5 flex flex-col items-center text-center z-10"
+                >
+                    <!-- Warning Icon Badge -->
+                    <div class="w-12 h-12 rounded-full bg-error/10 text-error flex items-center justify-center mb-3">
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                    </div>
+
+                    <h4 class="font-extrabold text-sm text-deep-teal mb-1">Hapus Komentar?</h4>
+                    <p class="text-xs text-deep-teal/70 font-medium mb-5 leading-relaxed">
+                        Komentar yang dihapus tidak dapat dipulihkan kembali.
+                    </p>
+
+                    <!-- Action Buttons -->
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                        <button
+                            type="button"
+                            @click="cancelDelete()"
+                            :disabled="deletingComment"
+                            class="w-full py-2 px-3 rounded-xl bg-paper-dark hover:bg-paper-dark/80 text-deep-teal font-extrabold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="button"
+                            @click="executeDelete()"
+                            :disabled="deletingComment"
+                            class="w-full py-2 px-3 rounded-xl bg-error hover:bg-error-dark text-white font-extrabold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm"
+                        >
+                            <template x-if="deletingComment">
+                                <svg class="animate-spin w-3.5 h-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                </svg>
+                            </template>
+                            <span x-text="deletingComment ? 'Menghapus...' : 'Ya, Hapus'"></span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </x-sheet>
