@@ -518,6 +518,7 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
     </div>
     <!-- Floating EXP animation badge -->
     <div
+        x-cloak
         x-show="floatingExp"
         x-transition:enter="transition ease-out duration-300"
         x-transition:enter-start="opacity-0 translate-y-4 scale-75"
@@ -565,6 +566,7 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
         <button
             type="button"
             @click="goToSlide(currentSlide - 1)"
+            x-cloak
             x-show="currentSlide > 0"
             class="w-10 h-10 rounded-full bg-deep-teal/70 hover:bg-deep-teal text-paper flex items-center justify-center pointer-events-auto transition-transform hover:scale-110 active:scale-95 shadow-lg border border-white/20 cursor-pointer"
             title="Slide Sebelumnya"
@@ -577,6 +579,7 @@ $quizCorrect = $userProgress ? (bool) $userProgress->quiz_correct : false;
         <button
             type="button"
             @click="goToSlide(currentSlide + 1)"
+            x-cloak
             x-show="currentSlide < totalSlides - 1"
             class="w-10 h-10 rounded-full bg-deep-teal/70 hover:bg-deep-teal text-paper flex items-center justify-center pointer-events-auto transition-transform hover:scale-110 active:scale-95 shadow-lg border border-white/20 cursor-pointer"
             title="Slide Selanjutnya"
