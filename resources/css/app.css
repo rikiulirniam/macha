@@ -58,6 +58,10 @@
 @tailwind components;
 @tailwind utilities;
 
+[x-cloak] {
+    display: none !important;
+}
+
 :root {
     --color-deep-teal: #102A2A;
     --color-kilat: #19A974;
